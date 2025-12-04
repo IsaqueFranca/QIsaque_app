@@ -22,8 +22,17 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Generate a comprehensive list of 5 to 10 key study subtopics for the subject: "${subjectTitle}" in the context of a ${healthDegree} degree. 
-      Keep the titles concise (under 6 words). Focus on high-yield topics for residency exams.`,
+      contents: `Atue como um tutor especialista em concursos e residências da área da saúde no Brasil.
+      
+      Tarefa: Gere uma lista abrangente de 5 a 10 subtópicos de estudo essenciais para a matéria: "${subjectTitle}".
+      Contexto: Graduação em ${healthDegree} (Área da Saúde).
+      Objetivo: Preparação para provas de Residência ou Concursos no Brasil.
+
+      Diretrizes:
+      1. O idioma DEVE ser Português do Brasil (PT-BR).
+      2. Mantenha os títulos concisos (máximo 6 palavras).
+      3. Foque nos tópicos de maior incidência (high-yield) nas provas brasileiras.
+      4. Evite introduções, retorne apenas os dados estruturados.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -49,6 +58,48 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
   }
 };
 
+export const organizeSubjectsFromText = async (text: string): Promise<string[]> => {
+  const ai = getAiClient();
+  if (!ai) return [];
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analise o texto fornecido pelo usuário, que contém uma lista desorganizada de assuntos/matérias de estudo (ex: edital de residência ou ementa de curso).
+      
+      Sua tarefa:
+      1. Identificar e extrair os nomes das matérias principais.
+      2. Organizar os nomes de forma padronizada, com primeira letra maiúscula (Title Case).
+      3. Remover duplicatas óbvias.
+      4. Traduzir para Português do Brasil se estiver em outra língua.
+      5. Retornar apenas a lista limpa.
+      
+      Texto do usuário: "${text}"`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            subjects: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+        },
+      },
+    });
+
+    if (response.text) {
+      const json = JSON.parse(response.text);
+      return json.subjects || [];
+    }
+    return [];
+  } catch (error) {
+    console.error("Failed to organize subjects:", error);
+    return [];
+  }
+};
+
 export const getStudyChatResponse = async (
   subject: string,
   degree: string,
@@ -62,16 +113,16 @@ export const getStudyChatResponse = async (
     const chat = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
-        systemInstruction: `You are a specialized study tutor for a student of ${degree}. 
-        The student is currently studying the subject: "${subject}". 
+        systemInstruction: `Você é um tutor de estudos especializado para um estudante de ${degree} no Brasil. 
+        O estudante está estudando a matéria: "${subject}". 
         
-        Your goals:
-        1. Answer questions specifically related to ${subject} in the context of ${degree}.
-        2. Provide short, high-yield summaries when asked.
-        3. Suggest correlated topics if requested.
-        4. If asked for a "Quiz" or "Question", generate a multiple-choice question suitable for a Residency Exam in ${degree}.
+        Seus objetivos:
+        1. Responder dúvidas especificamente sobre ${subject} no contexto de ${degree}.
+        2. Fornecer resumos curtos e de alto rendimento quando solicitado.
+        3. Sugerir tópicos correlatos se solicitado.
+        4. Se pedirem um "Quiz" ou "Questão", gere uma questão de múltipla escolha adequada para provas de Residência no Brasil.
         
-        Keep answers concise, professional, and encouraging. Language: Portuguese (Brazil).`,
+        Mantenha as respostas concisas, profissionais e encorajadoras. Idioma: Português (Brasil).`,
       },
       history: history,
     });
@@ -101,17 +152,17 @@ export const generateBehavioralInsights = async (
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analyze this study data for a ${degree} student and provide 3 short, behavioral insights (1 sentence each) in Portuguese.
+      contents: `Analise estes dados de estudo de um estudante de ${degree} e forneça 3 insights comportamentais curtos (1 frase cada) em Português do Brasil.
       
-      Stats:
-      - Current Streak: ${streakData.currentStreak} days
-      - Longest Streak: ${streakData.longestStreak} days
-      - Total Days Active: ${streakData.totalActiveDays}
+      Estatísticas:
+      - Sequência Atual: ${streakData.currentStreak} dias
+      - Maior Sequência: ${streakData.longestStreak} dias
+      - Dias Totais Ativos: ${streakData.totalActiveDays}
       
-      Recent Sessions Sample: ${JSON.stringify(sessionSummary)}
+      Amostra de Sessões Recentes: ${JSON.stringify(sessionSummary)}
       
-      Focus on: Consistency, Time of day patterns, and Motivation. 
-      Example output: "Você rende mais à noite.", "Sua consistência está ótima, continue!", "Cuidado com os fins de semana."`,
+      Foque em: Consistência, Padrões de horário e Motivação. 
+      Exemplo de saída: "Você rende mais à noite.", "Sua consistência está ótima, continue!", "Cuidado com os fins de semana."`,
     });
 
     return response.text || "Continue estudando para gerar insights!";
