@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -13,12 +12,150 @@ import SubjectList from "./components/study/SubjectList";
 import SettingsPage from "./components/study/SettingsPage";
 import StartStudyTab from "./components/study/StartStudyTab";
 import StatisticsTab from "./components/study/StatisticsTab";
-import ScheduleTab from "./components/study/ScheduleTab"; // Import ScheduleTab
+import ScheduleTab from "./components/study/ScheduleTab";
 import LoginPage from "./components/auth/LoginPage";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
+import { User as UserType } from "./types";
 
 type Tab = "provas" | "planning" | "schedule" | "study" | "statistics" | "settings";
+
+interface SidebarProps {
+  tab: Tab;
+  setTab: (tab: Tab) => void;
+  setIsMobileMenuOpen: (open: boolean) => void;
+  user: UserType | null;
+  onSettingsClick: () => void;
+  onLogout: () => void;
+  onGuestLogin: () => void;
+}
+
+// Extracted Sidebar component to prevent re-creation on every render
+const Sidebar: React.FC<SidebarProps> = ({ 
+  tab, 
+  setTab, 
+  setIsMobileMenuOpen, 
+  user, 
+  onSettingsClick, 
+  onLogout, 
+  onGuestLogin 
+}) => {
+  return (
+    <div className="flex flex-col h-full bg-white border-r border-zinc-100 w-72 safe-area-left">
+      <div className="p-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg shadow-zinc-900/10">
+             <GraduationCap className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg text-zinc-900 tracking-tight">
+              QIsaque
+            </h1>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 space-y-8">
+        {/* Navigation Section */}
+        <div className="space-y-1">
+             <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
+             <button
+                onClick={() => { setTab("provas"); setIsMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
+                  tab === "provas" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                )}
+              >
+                <FolderOpen className={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
+                Provas
+              </button>
+              <button
+                onClick={() => { setTab("schedule"); setIsMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
+                  tab === "schedule" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                )}
+              >
+                <CalendarRange className={cn("w-4 h-4", tab === "schedule" && "text-zinc-900")} />
+                Cronograma
+              </button>
+             <button
+                onClick={() => { setTab("study"); setIsMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
+                  tab === "study" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                )}
+              >
+                <Play className={cn("w-4 h-4", tab === "study" && "fill-current")} />
+                Focar
+              </button>
+              <button
+                onClick={() => { setTab("statistics"); setIsMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
+                  tab === "statistics" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                )}
+              >
+                <BarChart3 className="w-4 h-4" />
+                Análise
+              </button>
+        </div>
+      </div>
+
+      {/* User Footer */}
+      <div className="p-4 mt-auto space-y-2 border-t border-zinc-50 bg-zinc-50/50">
+         <div className="flex items-center gap-3 mb-2 px-2">
+            {user ? (
+                <>
+                    {user.photoURL ? (
+                        <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-zinc-200" />
+                    ) : (
+                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-zinc-200">
+                            <User className="w-4 h-4 text-zinc-500" />
+                        </div>
+                    )}
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-bold text-zinc-900 truncate">{user.displayName || "Usuário"}</span>
+                        <span className="text-[10px] text-zinc-400 truncate">{user.email}</span>
+                    </div>
+                </>
+            ) : (
+                <span className="text-xs font-bold text-zinc-500">Modo Visitante</span>
+            )}
+         </div>
+
+        <button
+          onClick={onSettingsClick}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium",
+            tab === "settings" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+          )}
+        >
+          <Settings className="w-4 h-4" />
+          Ajustes
+        </button>
+        
+        {user ? (
+            <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-red-400 hover:text-red-600 hover:bg-red-50"
+            >
+            <LogOut className="w-4 h-4" />
+            Sair
+            </button>
+        ) : (
+             <button
+            onClick={onGuestLogin}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            >
+            <UserPlus className="w-4 h-4" />
+            Entrar
+            </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const App = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -104,129 +241,20 @@ const App = () => {
     return <LoginPage onLoginSuccess={() => {}} />;
   }
 
-  // 3. Sidebar Component
-  const Sidebar = () => (
-    <div className="flex flex-col h-full bg-white border-r border-zinc-100 w-72 safe-area-left">
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg shadow-zinc-900/10">
-             <GraduationCap className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg text-zinc-900 tracking-tight">
-              QIsaque
-            </h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 space-y-8">
-        {/* Navigation Section */}
-        <div className="space-y-1">
-             <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
-             <button
-                onClick={() => { setTab("provas"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "provas" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <FolderOpen className={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
-                Provas
-              </button>
-              <button
-                onClick={() => { setTab("schedule"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "schedule" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <CalendarRange className={cn("w-4 h-4", tab === "schedule" && "text-zinc-900")} />
-                Cronograma
-              </button>
-             <button
-                onClick={() => { setTab("study"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "study" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <Play className={cn("w-4 h-4", tab === "study" && "fill-current")} />
-                Focar
-              </button>
-              <button
-                onClick={() => { setTab("statistics"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "statistics" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <BarChart3 className="w-4 h-4" />
-                Análise
-              </button>
-        </div>
-      </div>
-
-      {/* User Footer */}
-      <div className="p-4 mt-auto space-y-2 border-t border-zinc-50 bg-zinc-50/50">
-         <div className="flex items-center gap-3 mb-2 px-2">
-            {user ? (
-                <>
-                    {user.photoURL ? (
-                        <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-zinc-200" />
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-zinc-200">
-                            <User className="w-4 h-4 text-zinc-500" />
-                        </div>
-                    )}
-                    <div className="flex flex-col overflow-hidden">
-                        <span className="text-xs font-bold text-zinc-900 truncate">{user.displayName || "Usuário"}</span>
-                        <span className="text-[10px] text-zinc-400 truncate">{user.email}</span>
-                    </div>
-                </>
-            ) : (
-                <span className="text-xs font-bold text-zinc-500">Modo Visitante</span>
-            )}
-         </div>
-
-        <button
-          onClick={handleSettingsClick}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium",
-            tab === "settings" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
-          )}
-        >
-          <Settings className="w-4 h-4" />
-          Ajustes
-        </button>
-        
-        {user ? (
-            <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-red-400 hover:text-red-600 hover:bg-red-50"
-            >
-            <LogOut className="w-4 h-4" />
-            Sair
-            </button>
-        ) : (
-             <button
-            onClick={handleGuestLoginClick}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            >
-            <UserPlus className="w-4 h-4" />
-            Entrar
-            </button>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-white font-sans flex overflow-hidden selection:bg-zinc-900 selection:text-white">
       
       {/* Desktop Sidebar */}
       <div className="hidden md:block h-screen sticky top-0 z-40">
-        <Sidebar />
+        <Sidebar 
+          tab={tab}
+          setTab={setTab}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          user={user}
+          onSettingsClick={handleSettingsClick}
+          onLogout={handleLogout}
+          onGuestLogin={handleGuestLoginClick}
+        />
       </div>
 
       {/* Mobile Menu Overlay */}
@@ -246,7 +274,15 @@ const App = () => {
               exit={{ x: "-100%" }}
               className="fixed inset-y-0 left-0 z-50 bg-background w-72 md:hidden shadow-2xl safe-area-left"
             >
-              <Sidebar />
+              <Sidebar 
+                tab={tab}
+                setTab={setTab}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+                user={user}
+                onSettingsClick={handleSettingsClick}
+                onLogout={handleLogout}
+                onGuestLogin={handleGuestLoginClick}
+              />
             </motion.div>
           </>
         )}
