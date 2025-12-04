@@ -1,18 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 // A chave será obtida via process.env.API_KEY, que é injetada pelo vite.config.ts durante o build
-const getApiKey = () => {
-  return process.env.API_KEY;
-};
-
-// Safely initialize the client only when needed to avoid issues if key is missing during initial load
 const getAiClient = () => {
-  const currentKey = getApiKey();
-  if (!currentKey) {
-    console.warn("Gemini API Key is missing. Verifique se a Secret 'API_KEY' foi adicionada no GitHub Settings e mapeada corretamente.");
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("Gemini API Key is missing. Verifique se a Secret 'API_KEY' ou 'VITE_API_KEY' foi configurada no .env ou nas variáveis de ambiente.");
     return null;
   }
-  return new GoogleGenAI({ apiKey: currentKey });
+  return new GoogleGenAI({ apiKey });
+};
+
+// Helper to clean Markdown code blocks from JSON response
+const cleanJsonText = (text: string): string => {
+  if (!text) return "";
+  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 };
 
 export const generateSubtopicsForSubject = async (subjectTitle: string, healthDegree: string = 'Medicine'): Promise<string[]> => {
@@ -48,7 +49,8 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
     });
 
     if (response.text) {
-        const json = JSON.parse(response.text);
+        const cleanedText = cleanJsonText(response.text);
+        const json = JSON.parse(cleanedText);
         return json.subtopics || [];
     }
     return [];
@@ -91,7 +93,8 @@ export const organizeSubjectsFromText = async (text: string): Promise<string[]> 
     });
 
     if (response.text) {
-      const json = JSON.parse(response.text);
+      const cleanedText = cleanJsonText(response.text);
+      const json = JSON.parse(cleanedText);
       return json.subjects || [];
     }
     return [];
@@ -132,7 +135,7 @@ export const getStudyChatResponse = async (
     return response.text || "Sem resposta.";
   } catch (error) {
     console.error("Chat error", error);
-    return "Desculpe, ocorreu um erro ao processar sua pergunta.";
+    return "Desculpe, ocorreu um erro ao processar sua pergunta. Tente novamente mais tarde.";
   }
 };
 
