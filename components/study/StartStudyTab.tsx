@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
-import { Play, Pause, CheckCircle2, Clock, Trash2, X, Send, Bot, Sparkles, MessageSquare, Maximize2 } from "lucide-react";
+import { Play, Pause, CheckCircle2, Clock, Trash2, X, Send, Bot, Sparkles, MessageSquare, Plus, Calendar } from "lucide-react";
 import { formatDate, cn } from "../../lib/utils";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,15 +23,23 @@ const StartStudyTab = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [isTimerOpen, setIsTimerOpen] = useState(false);
   
+  // Timer State
   const [isRunning, setIsRunning] = useState(false);
   const [seconds, setSeconds] = useState(settings.pomodoroDuration * 60);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; parts: { text: string }[] }[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Manual Entry State
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [manualDate, setManualDate] = useState(formatDate(new Date()));
+  const [manualHours, setManualHours] = useState("");
+  const [manualMinutes, setManualMinutes] = useState("");
 
   useEffect(() => {
     if (months.length > 0 && !selectedMonthId) {
@@ -83,6 +91,35 @@ const StartStudyTab = () => {
 
     setIsRunning(false);
     setIsTimerOpen(false);
+  };
+
+  const handleSaveManualSession = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSubjectId) return;
+
+    const h = parseInt(manualHours) || 0;
+    const m = parseInt(manualMinutes) || 0;
+    
+    if (h === 0 && m === 0) return;
+
+    const totalSeconds = (h * 3600) + (m * 60);
+    
+    // Create a timestamp based on the selected date at noon to avoid timezone edge cases
+    const sessionDate = new Date(manualDate);
+    sessionDate.setHours(12, 0, 0, 0);
+
+    addSession({
+        subjectId: selectedSubjectId,
+        startTime: sessionDate.getTime(),
+        duration: totalSeconds,
+        date: manualDate,
+        status: 'completed'
+    });
+
+    setIsManualOpen(false);
+    setManualHours("");
+    setManualMinutes("");
+    setManualDate(formatDate(new Date()));
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -175,14 +212,25 @@ const StartStudyTab = () => {
           </div>
         </div>
 
-        <Button 
-          size="lg" 
-          className="w-full h-16 text-lg font-bold rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-900/20 transition-all" 
-          onClick={handleStartTimer}
-          disabled={!selectedSubjectId}
-        >
-          <Play className="w-5 h-5 mr-3 fill-current" /> Iniciar Sessão
-        </Button>
+        <div className="flex flex-col gap-3">
+            <Button 
+              size="lg" 
+              className="w-full h-16 text-lg font-bold rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-900/20 transition-all" 
+              onClick={handleStartTimer}
+              disabled={!selectedSubjectId}
+            >
+              <Play className="w-5 h-5 mr-3 fill-current" /> Iniciar Sessão
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className="w-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+              onClick={() => setIsManualOpen(true)}
+              disabled={!selectedSubjectId}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Registrar Manualmente
+            </Button>
+        </div>
       </div>
 
       {/* Session History */}
@@ -215,6 +263,10 @@ const StartStudyTab = () => {
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
                         {Math.floor(session.duration / 60)} min
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                         <Calendar className="w-3.5 h-3.5" />
+                         {session.date.split('-').reverse().join('/')}
                       </span>
                       {isIncomplete && (
                         <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded-md">
@@ -250,6 +302,80 @@ const StartStudyTab = () => {
           </div>
         )}
       </div>
+
+      {/* Manual Entry Modal */}
+      <AnimatePresence>
+        {isManualOpen && (
+            <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+            onClick={() => setIsManualOpen(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-zinc-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                   <h3 className="font-bold text-xl text-zinc-900">Registro Manual</h3>
+                   <p className="text-sm text-zinc-500 truncate max-w-[200px]">{currentSubject?.title}</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsManualOpen(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <form onSubmit={handleSaveManualSession} className="space-y-4">
+                 <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase">Data</label>
+                    <Input 
+                        type="date" 
+                        value={manualDate}
+                        onChange={(e) => setManualDate(e.target.value)}
+                        className="bg-zinc-50 border-zinc-200"
+                        required
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-zinc-500 uppercase">Horas</label>
+                        <Input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            value={manualHours}
+                            onChange={(e) => setManualHours(e.target.value)}
+                            className="bg-zinc-50 border-zinc-200"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-zinc-500 uppercase">Minutos</label>
+                        <Input 
+                            type="number" 
+                            min="0"
+                            max="59"
+                            placeholder="0"
+                            value={manualMinutes}
+                            onChange={(e) => setManualMinutes(e.target.value)}
+                            className="bg-zinc-50 border-zinc-200"
+                        />
+                    </div>
+                 </div>
+
+                 <div className="pt-4 flex gap-3">
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setIsManualOpen(false)}>Cancelar</Button>
+                    <Button type="submit" className="flex-1">Salvar</Button>
+                 </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Fullscreen Timer Modal */}
       <AnimatePresence>
