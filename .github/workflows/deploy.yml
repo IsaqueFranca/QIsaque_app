@@ -39,9 +39,9 @@ jobs:
       - name: Construir o projeto (Build)
         run: npm run build
         env:
-          # Injeta a chave da API durante o build
-          # Certifique-se de adicionar API_KEY nos Settings > Secrets do repositório
-          API_KEY: ${{ secrets.API_KEY }}
+          # Mapeia o Secret API_KEY para a variável VITE_API_KEY
+          # O Vite detecta automaticamente variáveis começando com VITE_
+          VITE_API_KEY: ${{ secrets.API_KEY }}
 
       - name: Upload do artefato
         uses: actions/upload-pages-artifact@v3

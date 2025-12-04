@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// A chave será injetada pelo Vite via 'define' no vite.config.ts
+// A chave será obtida via process.env.API_KEY conforme diretrizes
 const getApiKey = () => {
   return process.env.API_KEY;
 };
@@ -9,7 +9,7 @@ const getApiKey = () => {
 const getAiClient = () => {
   const currentKey = getApiKey();
   if (!currentKey) {
-    console.warn("Gemini API Key is missing. Verifique se a Secret 'API_KEY' foi adicionada no GitHub Settings.");
+    console.warn("Gemini API Key is missing. Verifique se a Secret 'API_KEY' foi adicionada no GitHub Settings e mapeada corretamente.");
     return null;
   }
   return new GoogleGenAI({ apiKey: currentKey });
@@ -17,7 +17,7 @@ const getAiClient = () => {
 
 export const generateSubtopicsForSubject = async (subjectTitle: string, healthDegree: string = 'Medicine'): Promise<string[]> => {
   const ai = getAiClient();
-  if (!ai) return ["Erro: Chave API ausente. Configure no GitHub Secrets."];
+  if (!ai) return ["Erro: Chave API ausente."];
 
   try {
     const response = await ai.models.generateContent({
@@ -107,7 +107,7 @@ export const getStudyChatResponse = async (
   history: { role: 'user' | 'model'; parts: { text: string }[] }[]
 ): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Não foi possível conectar com a IA. Verifique sua chave API nas configurações do GitHub.";
+  if (!ai) return "Não foi possível conectar com a IA. Verifique sua chave API.";
 
   try {
     const chat = ai.chats.create({
