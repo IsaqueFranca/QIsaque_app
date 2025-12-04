@@ -21,6 +21,9 @@ const StartStudyTab = () => {
 
   const [selectedMonthId, setSelectedMonthId] = useState<string>("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  
+  // studyDate is now only used for the Manual Entry Modal
+  const [studyDate, setStudyDate] = useState<string>(formatDate(new Date())); 
   const [isTimerOpen, setIsTimerOpen] = useState(false);
   
   // Timer State
@@ -37,7 +40,6 @@ const StartStudyTab = () => {
 
   // Manual Entry State
   const [isManualOpen, setIsManualOpen] = useState(false);
-  const [manualDate, setManualDate] = useState(formatDate(new Date()));
   const [manualHours, setManualHours] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
 
@@ -79,12 +81,16 @@ const StartStudyTab = () => {
     if (!selectedSubjectId) return;
 
     const duration = (settings.pomodoroDuration * 60) - seconds;
+    
+    // For live timer sessions, ALWAYS use the current system time/date
+    const now = new Date();
+
     if (duration > 10) {
       addSession({
         subjectId: selectedSubjectId,
-        startTime: Date.now() - (duration * 1000),
+        startTime: now.getTime(),
         duration: duration,
-        date: formatDate(new Date()),
+        date: formatDate(now), // System date
         status: status
       });
     }
@@ -104,22 +110,23 @@ const StartStudyTab = () => {
 
     const totalSeconds = (h * 3600) + (m * 60);
     
-    // Create a timestamp based on the selected date at noon to avoid timezone edge cases
-    const sessionDate = new Date(manualDate);
-    sessionDate.setHours(12, 0, 0, 0);
+    // Create a timestamp based on the MANUALLY selected date (defaulting to noon to avoid timezone edges)
+    const [y, mon, d] = studyDate.split('-').map(Number);
+    const sessionDate = new Date(y, mon - 1, d, 12, 0, 0);
 
     addSession({
         subjectId: selectedSubjectId,
         startTime: sessionDate.getTime(),
         duration: totalSeconds,
-        date: manualDate,
+        date: studyDate, // Use the manual picker date
         status: 'completed'
     });
 
     setIsManualOpen(false);
     setManualHours("");
     setManualMinutes("");
-    setManualDate(formatDate(new Date()));
+    // Reset date to today after saving, for convenience
+    setStudyDate(formatDate(new Date())); 
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -161,13 +168,15 @@ const StartStudyTab = () => {
     <div className="space-y-10">
       <div className="space-y-1">
         <h2 className="text-3xl font-bold text-zinc-900 tracking-tight">Foco Total</h2>
-        <p className="text-zinc-500">Selecione o alvo de hoje e cronometre seu progresso.</p>
+        <p className="text-zinc-500">Selecione o alvo e registre seu progresso.</p>
       </div>
 
       {/* Selectors */}
-      <div className="bg-white p-8 rounded-[2rem] border border-zinc-100 shadow-sm space-y-8">
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="space-y-3">
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-zinc-100 shadow-sm space-y-6">
+        <div className="grid md:grid-cols-12 gap-6">
+          
+          {/* Month Selector */}
+          <div className="md:col-span-5 space-y-2">
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Mês</label>
             <div className="relative">
               <select 
@@ -189,7 +198,8 @@ const StartStudyTab = () => {
             </div>
           </div>
 
-          <div className="space-y-3">
+          {/* Subject Selector */}
+          <div className="md:col-span-7 space-y-2">
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Assunto</label>
             <div className="relative">
               <select 
@@ -212,10 +222,10 @@ const StartStudyTab = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row gap-3 pt-2">
             <Button 
               size="lg" 
-              className="w-full h-16 text-lg font-bold rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-900/20 transition-all" 
+              className="flex-1 h-14 text-lg font-bold rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-900/20 transition-all" 
               onClick={handleStartTimer}
               disabled={!selectedSubjectId}
             >
@@ -223,8 +233,8 @@ const StartStudyTab = () => {
             </Button>
             
             <Button
-              variant="ghost"
-              className="w-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+              variant="outline"
+              className="flex-1 h-14 text-zinc-600 border-zinc-200 hover:text-zinc-900 hover:bg-zinc-50 hover:border-zinc-300 rounded-2xl text-base"
               onClick={() => setIsManualOpen(true)}
               disabled={!selectedSubjectId}
             >
@@ -249,6 +259,7 @@ const StartStudyTab = () => {
             {sortedSessions.map(session => {
               const subject = subjects.find(s => s.id === session.subjectId);
               const isIncomplete = session.status === 'incomplete';
+              const sessionDateDisplay = session.date.split('-').reverse().join('/');
               
               return (
                 <div key={session.id} className={cn(
@@ -260,14 +271,15 @@ const StartStudyTab = () => {
                   <div className="flex flex-col gap-1">
                     <span className="font-bold text-base text-zinc-800">{subject?.title || "Desconhecido"}</span>
                     <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
+                      <span className="flex items-center gap-1.5 bg-zinc-50 px-2 py-1 rounded-md">
+                         <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                         {sessionDateDisplay}
+                      </span>
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
                         {Math.floor(session.duration / 60)} min
                       </span>
-                      <span className="flex items-center gap-1.5">
-                         <Calendar className="w-3.5 h-3.5" />
-                         {session.date.split('-').reverse().join('/')}
-                      </span>
+                      
                       {isIncomplete && (
                         <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded-md">
                           Incompleto
@@ -335,8 +347,8 @@ const StartStudyTab = () => {
                     <label className="text-xs font-bold text-zinc-500 uppercase">Data</label>
                     <Input 
                         type="date" 
-                        value={manualDate}
-                        onChange={(e) => setManualDate(e.target.value)}
+                        value={studyDate}
+                        onChange={(e) => setStudyDate(e.target.value)}
                         className="bg-zinc-50 border-zinc-200"
                         required
                     />
@@ -390,7 +402,10 @@ const StartStudyTab = () => {
             <div className="p-8 flex justify-between items-center">
                <div>
                   <h2 className="font-bold text-2xl text-zinc-900">{currentSubject?.title}</h2>
-                  <p className="text-zinc-500 text-sm">Modo de Concentração</p>
+                  <p className="text-zinc-500 text-sm flex items-center gap-2">
+                    <Calendar className="w-3 h-3" />
+                    {formatDate(new Date()).split('-').reverse().join('/')}
+                  </p>
                </div>
                
                <div className="flex gap-4">
@@ -406,7 +421,7 @@ const StartStudyTab = () => {
                   <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => setIsTimerOpen(false)} // Just closes modal, timer runs in bg in theory but here we pause usually
+                      onClick={() => setIsTimerOpen(false)} 
                   >
                       <X className="w-6 h-6" />
                   </Button>
