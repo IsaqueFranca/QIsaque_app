@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare, Maximize2 } from "lucide-react";
+import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare, Maximize2, Copy } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
@@ -512,7 +512,8 @@ const ScheduleTab = () => {
     updateSubjectSchedule,
     toggleSubjectPlannedDay,
     addSession,
-    deleteSession
+    deleteSession,
+    duplicateMonthSchedule
   } = useStudyStore();
   
   const [viewMode, setViewMode] = useState<'grid' | 'summary'>('grid');
@@ -520,6 +521,11 @@ const ScheduleTab = () => {
   const [managingMonthId, setManagingMonthId] = useState<string | null>(null);
   const [isAddingMonth, setIsAddingMonth] = useState(false);
   const [newMonthValue, setNewMonthValue] = useState(formatDate(new Date()).slice(0, 7));
+  
+  // Duplication State
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [monthToDuplicate, setMonthToDuplicate] = useState<string | null>(null);
+  const [targetDuplicateMonth, setTargetDuplicateMonth] = useState<string>(formatDate(new Date()).slice(0, 7));
 
   const calendarMonths = useMemo(() => {
     return activeScheduleMonths.map(monthStr => {
@@ -576,6 +582,25 @@ const ScheduleTab = () => {
       addActiveScheduleMonth(newMonthValue);
       setIsAddingMonth(false);
     }
+  };
+
+  const handleDuplicateMonth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (monthToDuplicate && targetDuplicateMonth) {
+        duplicateMonthSchedule(monthToDuplicate, targetDuplicateMonth);
+        setIsDuplicating(false);
+        setMonthToDuplicate(null);
+    }
+  };
+
+  const openDuplicateModal = (monthId: string) => {
+      setMonthToDuplicate(monthId);
+      // Default to the next month of the source
+      const [y, m] = monthId.split('-').map(Number);
+      const nextDate = new Date(y, m, 1); // Month is 0-indexed in JS date but 1-indexed in split
+      const nextStr = formatDate(nextDate).slice(0, 7);
+      setTargetDuplicateMonth(nextStr);
+      setIsDuplicating(true);
   };
 
   // Toggle Day Completion from Summary View
@@ -700,18 +725,25 @@ const ScheduleTab = () => {
                       {isCurrentMonth && <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Atual</span>}
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 font-mono text-sm shadow-sm group-hover:scale-110 transition-transform">
-                        {stats.subjectCount}
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); openDuplicateModal(month.id); }}
+                        className="w-8 h-8 rounded-full hover:bg-white hover:text-indigo-600 flex items-center justify-center text-zinc-400 transition-colors"
+                        title="Duplicar planejamento"
+                      >
+                         <Copy className="w-4 h-4" />
                       </div>
                       <div 
                         onClick={(e) => { e.stopPropagation(); removeActiveScheduleMonth(month.id); }}
-                        className="w-8 h-8 rounded-full hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-zinc-300 transition-colors opacity-0 group-hover:opacity-100"
+                        className="w-8 h-8 rounded-full hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-zinc-300 transition-colors"
                         title="Remover mês"
                       >
                         <Trash2 className="w-4 h-4" />
                       </div>
                     </div>
+                     <div className="w-10 h-10 rounded-full bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 font-mono text-sm shadow-sm group-hover:hidden transition-transform">
+                        {stats.subjectCount}
+                      </div>
                   </div>
 
                   {/* Card Body */}
@@ -810,6 +842,62 @@ const ScheduleTab = () => {
                  </div>
 
                  <Button type="submit" className="w-full h-12 text-base">Adicionar</Button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Duplicate Month Modal */}
+      <AnimatePresence>
+        {isDuplicating && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+            onClick={() => setIsDuplicating(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-zinc-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                   <h3 className="font-bold text-xl text-zinc-900 flex items-center gap-2">
+                     <Copy className="w-5 h-5 text-indigo-500" />
+                     Duplicar Planejamento
+                   </h3>
+                   <p className="text-sm text-zinc-500">Copiar matérias e metas.</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsDuplicating(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="mb-4 text-xs text-zinc-400 bg-zinc-50 p-3 rounded-lg border border-zinc-100">
+                 Isso copiará todas as matérias ativas, metas de horas e anotações de <b>{monthToDuplicate}</b> para o novo mês. Os dias específicos não serão copiados.
+              </div>
+
+              <form onSubmit={handleDuplicateMonth} className="space-y-6">
+                 <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase">Para qual mês?</label>
+                    <input 
+                        type="month" 
+                        value={targetDuplicateMonth}
+                        onChange={(e) => setTargetDuplicateMonth(e.target.value)}
+                        className="w-full h-12 px-4 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-base focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                        required
+                    />
+                 </div>
+
+                 <div className="flex gap-3">
+                   <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDuplicating(false)}>Cancelar</Button>
+                   <Button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">Duplicar</Button>
+                 </div>
               </form>
             </motion.div>
           </motion.div>

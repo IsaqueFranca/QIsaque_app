@@ -29,6 +29,7 @@ interface StudyState {
   // Schedule Actions
   addActiveScheduleMonth: (monthStr: string) => void;
   removeActiveScheduleMonth: (monthStr: string) => void;
+  duplicateMonthSchedule: (sourceMonthId: string, targetMonthId: string) => void;
 
   // Subject Actions
   addSubject: (title: string, monthId: string, tag?: string) => string;
@@ -36,7 +37,7 @@ interface StudyState {
   
   // Multi-Month Scheduling Actions
   toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
-  updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
+  updateSubjectSchedule: (subjectId: string, monthStr, updates: Partial<SubjectSchedule>) => void;
   toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
   
   deleteSubject: (id: string) => void;
@@ -180,6 +181,47 @@ export const useStudyStore = create<StudyState>()(
         set((state) => ({
            activeScheduleMonths: state.activeScheduleMonths.filter(m => m !== monthStr)
         }));
+        saveToCloud(get());
+      },
+
+      duplicateMonthSchedule: (sourceMonthId, targetMonthId) => {
+        set((state) => {
+          // 1. Ensure target month is in active list
+          const newActiveMonths = state.activeScheduleMonths.includes(targetMonthId)
+            ? state.activeScheduleMonths
+            : [...state.activeScheduleMonths, targetMonthId].sort();
+
+          // 2. Iterate subjects and copy schedule data
+          const newSubjects = state.subjects.map(subject => {
+            const sourceSchedule = subject.schedules?.[sourceMonthId];
+            
+            // If the subject has no schedule in the source month, skip it
+            if (!sourceSchedule) return subject;
+
+            // Create new schedule object
+            // Note: We do NOT copy plannedDays because dates don't align 1:1 between months.
+            // We DO copy goals and notes.
+            const newSchedule: SubjectSchedule = {
+              monthlyGoal: sourceSchedule.monthlyGoal,
+              notes: sourceSchedule.notes,
+              isCompleted: false, // Start fresh
+              plannedDays: [] // Start fresh
+            };
+
+            return {
+              ...subject,
+              schedules: {
+                ...subject.schedules,
+                [targetMonthId]: newSchedule
+              }
+            };
+          });
+
+          return {
+            activeScheduleMonths: newActiveMonths,
+            subjects: newSubjects
+          };
+        });
         saveToCloud(get());
       },
 
