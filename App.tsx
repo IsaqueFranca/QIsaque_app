@@ -1,20 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Settings, GraduationCap, CalendarDays, Play, BarChart3, Menu, Flame
+  Settings, GraduationCap, CalendarDays, Play, BarChart3, Menu, Flame, LogIn, User
 } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./lib/firebase";
 import { useStudyStore } from "./hooks/useStudyStore";
 import MonthGrid from "./components/study/MonthGrid";
 import SubjectList from "./components/study/SubjectList";
 import SettingsPage from "./components/study/SettingsPage";
 import StartStudyTab from "./components/study/StartStudyTab";
 import StatisticsTab from "./components/study/StatisticsTab";
+import LoginPage from "./components/auth/LoginPage";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import { HealthDegree } from "./types";
 
 type Tab = "months" | "study" | "statistics";
-type View = "months" | "subjects" | "settings";
+type View = "months" | "subjects" | "settings" | "login";
 
 const getDegreeEmoji = (degree: HealthDegree) => {
   switch (degree) {
@@ -45,10 +48,32 @@ const App = () => {
     getSubjectsByMonthId,
     updateSettings,
     getSessionsByMonthId,
-    getStreakStats
+    getStreakStats,
+    user,
+    setUser,
+    loadFromCloud
   } = useStudyStore();
 
   const streakStats = getStreakStats();
+
+  useEffect(() => {
+    // Listen for Firebase Auth changes
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser({
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL
+        });
+        // Optionally auto-load cloud data here, handled carefully inside store
+        // loadFromCloud(currentUser.uid); 
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleSelectMonth = (monthId: string) => {
     setSelectedMonthId(monthId);
@@ -104,20 +129,46 @@ const App = () => {
             onClick={() => handleTabChange(item.id as Tab)}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-sm font-semibold tracking-wide group relative overflow-hidden",
-              tab === item.id && view !== "settings"
+              tab === item.id && view !== "settings" && view !== "login"
                 ? "bg-zinc-900 text-white shadow-lg shadow-zinc-900/10"
                 : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
             )}
           >
             <item.icon className={cn("w-5 h-5 transition-colors", 
-               tab === item.id && view !== "settings" ? "text-white" : "text-zinc-400 group-hover:text-zinc-600"
+               tab === item.id && view !== "settings" && view !== "login" ? "text-white" : "text-zinc-400 group-hover:text-zinc-600"
             )} />
             {item.label}
           </button>
         ))}
       </nav>
 
-      <div className="p-4 mt-auto">
+      <div className="p-4 mt-auto space-y-2">
+        {!user ? (
+            <button
+            onClick={() => { setView("login"); if(window.innerWidth < 768) setIsMobileMenuOpen(false); }}
+            className={cn(
+                "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 text-sm font-semibold tracking-wide bg-blue-50 text-blue-600 hover:bg-blue-100"
+            )}
+            >
+            <LogIn className="w-5 h-5" />
+            Entrar
+            </button>
+        ) : (
+             <div className="px-4 py-2 flex items-center gap-3 mb-2">
+                {user.photoURL ? (
+                    <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-zinc-200" />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">
+                        <User className="w-4 h-4 text-zinc-500" />
+                    </div>
+                )}
+                <div className="flex flex-col overflow-hidden">
+                    <span className="text-xs font-bold text-zinc-900 truncate">{user.displayName || "Usuário"}</span>
+                    <span className="text-[10px] text-zinc-500 truncate">Sincronizado</span>
+                </div>
+             </div>
+        )}
+
         <button
           onClick={handleSettingsClick}
           className={cn(
@@ -181,7 +232,7 @@ const App = () => {
 
              <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 flex items-center gap-3">
-                  Olá, {settings.userName}
+                  Olá, {user?.displayName || settings.userName}
                   <span className="text-xl opacity-80" title={settings.healthDegree}>
                     {getDegreeEmoji(settings.healthDegree)}
                   </span>
@@ -194,7 +245,7 @@ const App = () => {
                 </div>
              </div>
              
-             {/* Streak Badge - Preserved Colorful Orange */}
+             {/* Streak Badge */}
              <div className="flex items-center gap-4 bg-orange-50 text-orange-700 px-5 py-2.5 rounded-full shadow-sm border border-orange-100">
                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
                  <Flame className="w-4 h-4 text-orange-500 fill-current" />
@@ -210,7 +261,20 @@ const App = () => {
         {/* Content */}
         <main className="flex-1 p-4 md:p-10 max-w-6xl mx-auto w-full">
           <AnimatePresence mode="wait">
-            {view === "settings" ? (
+            {view === "login" ? (
+                <motion.div
+                    key="login"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <LoginPage 
+                        onLoginSuccess={() => setView("months")} 
+                        onCancel={() => setView("months")} 
+                    />
+                </motion.div>
+            ) : view === "settings" ? (
               <motion.div
                 key="settings"
                 initial={{ opacity: 0, x: 20 }}

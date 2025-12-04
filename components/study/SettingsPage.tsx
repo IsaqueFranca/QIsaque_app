@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import { Settings, HealthDegree } from "../../types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, LogOut, User } from "lucide-react";
+import { useStudyStore } from "../../hooks/useStudyStore";
+import { auth } from "../../lib/firebase";
+import { signOut } from "firebase/auth";
 
 interface SettingsPageProps {
   settings: Settings;
@@ -16,11 +19,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   onBack,
 }) => {
   const [formData, setFormData] = useState(settings);
+  const user = useStudyStore(state => state.user);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateSettings(formData);
     onBack();
+  };
+
+  const handleLogout = async () => {
+      try {
+          await signOut(auth);
+          onBack();
+      } catch (error) {
+          console.error("Logout failed", error);
+      }
   };
 
   const degrees: HealthDegree[] = [
@@ -62,6 +75,39 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
+        
+        {/* Account Section */}
+        <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm space-y-4">
+             <h3 className="font-semibold text-lg border-b border-zinc-100 pb-2 text-zinc-900 flex items-center gap-2">
+                 <User className="w-5 h-5 text-zinc-500" />
+                 Conta
+             </h3>
+             {user ? (
+                 <div className="flex flex-col gap-3">
+                     <div className="flex items-center gap-3">
+                         {user.photoURL && <img src={user.photoURL} className="w-10 h-10 rounded-full" />}
+                         <div>
+                             <p className="font-medium text-zinc-900">{user.displayName || "Usuário"}</p>
+                             <p className="text-xs text-zinc-500">{user.email}</p>
+                         </div>
+                     </div>
+                     <div className="bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                         Sincronização Ativa
+                     </div>
+                     <Button type="button" variant="destructive" onClick={handleLogout} className="w-full mt-2">
+                         <LogOut className="w-4 h-4 mr-2" />
+                         Sair da Conta
+                     </Button>
+                 </div>
+             ) : (
+                 <div className="text-center py-4 text-zinc-500 text-sm">
+                     <p>Você está usando uma conta de visitante local.</p>
+                     <p>Faça login para salvar seus dados na nuvem.</p>
+                 </div>
+             )}
+        </div>
+
         <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm space-y-4">
           <h3 className="font-semibold text-lg border-b border-zinc-100 pb-2 text-zinc-900">Perfil & Metas</h3>
           <div className="grid gap-2">

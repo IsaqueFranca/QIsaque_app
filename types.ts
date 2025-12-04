@@ -10,6 +10,13 @@ export type HealthDegree =
   | 'Clinical Analysis'
   | 'Radiology';
 
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
 export interface Subtopic {
   id: string;
   title: string;
