@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare } from "lucide-react";
+import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare, Maximize2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
@@ -50,14 +50,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
 
   // Stats Calculation for this specific month
   const goalHours = scheduleData.monthlyGoal || 0;
-  const subjectSessions = sessions.filter(s => s.subjectId === subject.id && s.date.startsWith(monthId));
-  const totalSeconds = subjectSessions.reduce((acc, s) => acc + s.duration, 0);
-  const totalHours = totalSeconds / 3600;
   
-  const hourProgress = goalHours > 0 ? Math.min(100, (totalHours / goalHours) * 100) : 0;
-  
-  const totalSubtopics = subject.subtopics.length;
-  const completedSubtopics = subject.subtopics.filter(s => s.isCompleted).length;
   const isCompleted = scheduleData.isCompleted;
 
   // Planning Calculations
@@ -66,29 +59,13 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
     ? (goalHours / plannedDays.length).toFixed(1) 
     : "0";
 
-  const getStatusColor = (p: number) => {
-    if (isCompleted) return "bg-green-500";
-    if (p >= 100) return "bg-green-500";
-    if (p >= 50) return "bg-blue-500";
-    if (p > 0) return "bg-orange-500";
-    return "bg-zinc-200";
-  };
-  
-  const getStatusText = (p: number) => {
-      if (isCompleted) return "text-green-600";
-      if (p >= 100) return "text-green-600";
-      if (p >= 50) return "text-blue-600";
-      if (p > 0) return "text-orange-600";
-      return "text-zinc-400";
-  };
-
   // Generate Calendar Days for Planning
   const calendarGrid = useMemo(() => {
     const [year, month] = monthId.split('-').map(Number);
     const startMonthDate = new Date(year, month - 1, 1);
     const endMonthDate = new Date(year, month, 0);
     
-    // Calculate padding days to fill the grid (standard 6-week view if needed, or just month flow)
+    // Calculate padding days to fill the grid
     const startDay = startMonthDate.getDay(); // 0 is Sunday
     const startDate = new Date(startMonthDate);
     startDate.setDate(startMonthDate.getDate() - startDay);
@@ -100,7 +77,6 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
     const days: Date[] = [];
     let current = new Date(startDate);
     
-    // Generate dates until we cover the end of the month
     while (current <= endDate) {
         days.push(new Date(current));
         current.setDate(current.getDate() + 1);
@@ -109,248 +85,237 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
   }, [monthId]);
 
   return (
-    <motion.div 
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        "bg-white border rounded-2xl overflow-hidden transition-all duration-300",
-        isExpanded ? "border-indigo-200 shadow-md ring-1 ring-indigo-50" : "border-zinc-100 hover:border-zinc-200",
-        isCompleted && "border-green-200 bg-green-50/20"
-      )}
-    >
-      {/* Header */}
-      <div 
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="p-4 cursor-pointer flex items-center justify-between hover:bg-zinc-50/50 transition-colors"
+    <>
+      {/* Compact Card (Grid Item) */}
+      <motion.div 
+        layout
+        onClick={() => setIsExpanded(true)}
+        className={cn(
+          "bg-white border rounded-lg overflow-hidden transition-all duration-300 flex flex-col cursor-pointer group hover:shadow-md",
+          "border-zinc-200 hover:border-indigo-300",
+          isCompleted && "border-green-200 bg-green-50/10"
+        )}
       >
-        <div className="flex-1 min-w-0 pr-4">
-          <div className="flex items-center gap-2 mb-1">
-             <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateSubjectSchedule(subject.id, monthId, { isCompleted: !isCompleted });
-                }}
-                className={cn(
-                  "w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer hover:scale-105",
-                  isCompleted ? "bg-green-500 border-green-500" : "border-zinc-300 bg-white hover:border-green-400"
-                )}
-                title={isCompleted ? "Marcar como não concluído" : "Concluir Matéria"}
-             >
-                {isCompleted && <Check className="w-3.5 h-3.5 text-white" />}
-             </div>
-             <h4 className={cn("font-bold text-base truncate", isCompleted ? "text-green-700" : "text-zinc-900")}>
-               {subject.title}
-             </h4>
-             {subject.tag && (
-               <span className="text-[10px] px-2 py-0.5 bg-zinc-100 text-zinc-500 rounded-full font-medium">
-                 {subject.tag}
-               </span>
-             )}
-          </div>
-          
-          <div className="flex items-center gap-4 text-xs ml-7">
-             <div className="flex items-center gap-1.5 min-w-[100px]">
-                <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="font-medium text-zinc-700">
-                  {totalHours.toFixed(1)}h <span className="text-zinc-400">/ {goalHours}h</span>
-                </span>
-             </div>
-             <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="font-medium text-zinc-700">
-                  {completedSubtopics}/{totalSubtopics} tópicos
-                </span>
-             </div>
-          </div>
+        {/* Header */}
+        <div className={cn(
+          "px-3 py-2 flex items-center justify-between border-b transition-colors",
+           isCompleted ? "bg-green-50/30 border-green-100" : "bg-zinc-50/50 border-zinc-100 group-hover:bg-indigo-50/30"
+        )}>
+           <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateSubjectSchedule(subject.id, monthId, { isCompleted: !isCompleted });
+                  }}
+                  className={cn(
+                    "w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer shrink-0",
+                    isCompleted ? "bg-green-500 border-green-500" : "border-zinc-300 bg-white hover:border-green-400"
+                  )}
+              >
+                  {isCompleted && <Check className="w-3 h-3 text-white" />}
+              </div>
+              <h4 className={cn("font-bold text-xs truncate leading-tight", isCompleted ? "text-green-800" : "text-zinc-900")}>
+                {subject.title}
+              </h4>
+           </div>
+           <Maximize2 className="w-3 h-3 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
-        <div className="flex items-center gap-4 shrink-0">
-           {/* Mini Progress Circle or Bar */}
-           <div className="flex flex-col items-end gap-1 min-w-[60px]">
-              <span className={cn("text-xs font-bold", getStatusText(hourProgress))}>
-                 {isCompleted ? "100%" : `${Math.round(hourProgress)}%`}
-              </span>
-              <div className="w-16 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                 <div 
-                    className={cn("h-full rounded-full transition-all duration-500", getStatusColor(hourProgress))} 
-                    style={{ width: `${isCompleted ? 100 : hourProgress}%` }}
-                 />
-              </div>
-           </div>
-           
-           {isExpanded ? (
-             <ChevronUp className="w-5 h-5 text-zinc-400" />
+        {/* Body: Compact List */}
+        <div className="p-3 bg-white flex-1 min-h-[60px]">
+           {subject.subtopics.length === 0 ? (
+              <p className="text-[10px] text-zinc-300 italic">Sem tópicos cadastrados</p>
            ) : (
-             <ChevronDown className="w-5 h-5 text-zinc-400" />
+              <ul className="space-y-1.5">
+                 {subject.subtopics.slice(0, 5).map(st => (
+                   <li key={st.id} className="flex items-start gap-1.5 text-[10px] leading-tight text-zinc-600">
+                      <span className={cn("w-1 h-1 rounded-full mt-1 shrink-0", st.isCompleted ? "bg-green-400" : "bg-zinc-300")} />
+                      <span className={cn("truncate", st.isCompleted ? "text-zinc-400 line-through" : "text-zinc-600")}>
+                        {st.title}
+                      </span>
+                   </li>
+                 ))}
+                 {subject.subtopics.length > 5 && (
+                    <li className="text-[9px] text-zinc-400 pl-2.5">+ {subject.subtopics.length - 5} tópicos</li>
+                 )}
+              </ul>
            )}
         </div>
-      </div>
+        
+        {/* Footer info */}
+        <div className="px-3 py-1.5 border-t border-zinc-50 bg-zinc-50/30 flex justify-between items-center">
+            <span className="text-[9px] text-zinc-400 flex items-center gap-1">
+               <CalendarDays className="w-2.5 h-2.5" />
+               {plannedDays.length} dias
+            </span>
+            {goalHours > 0 && <span className="text-[9px] font-medium text-indigo-600">{goalHours}h meta</span>}
+        </div>
+      </motion.div>
 
-      {/* Expanded Content */}
+      {/* Expanded Modal (Fixed Overlay) */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-t border-zinc-100 bg-zinc-50/30"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+            onClick={() => setIsExpanded(false)}
           >
-            <div className="p-5 space-y-6">
-               
-               {/* Planning Section */}
-               <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                     <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-                       <CalendarDays className="w-4 h-4 text-indigo-500" /> Planejamento de Estudos
-                     </h5>
-                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-zinc-500">Meta do Mês (Horas):</span>
-                        <Input 
-                           type="number"
-                           min="0"
-                           className="w-20 h-8 text-sm font-bold text-center"
-                           value={scheduleData.monthlyGoal || 0}
-                           onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { monthlyGoal: parseInt(e.target.value) || 0 })}
-                        />
+            <motion.div 
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col md:flex-row ring-1 ring-zinc-950/5"
+              onClick={(e) => e.stopPropagation()}
+            >
+               {/* Left Column: Details & Notes */}
+               <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-zinc-100 min-h-[300px] md:h-auto">
+                  {/* Header */}
+                  <div className="p-5 border-b border-zinc-100 flex items-start gap-3 bg-zinc-50/50">
+                      <div 
+                          onClick={() => onUpdateSubjectSchedule(subject.id, monthId, { isCompleted: !isCompleted })}
+                          className={cn(
+                            "w-6 h-6 mt-0.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0",
+                            isCompleted ? "bg-green-500 border-green-500" : "border-zinc-300 bg-white hover:border-green-400"
+                          )}
+                      >
+                          {isCompleted && <Check className="w-4 h-4 text-white" />}
+                      </div>
+                      <div className="flex-1">
+                          <h3 className={cn("text-xl font-bold leading-tight", isCompleted ? "text-green-800" : "text-zinc-900")}>
+                            {subject.title}
+                          </h3>
+                          <div className="flex gap-2 mt-1">
+                             <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", isCompleted ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-500")}>
+                                {isCompleted ? "Concluído" : "Em andamento"}
+                             </span>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Subtopics List */}
+                  <div className="flex-1 overflow-y-auto p-5">
+                      <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <List className="w-3 h-3" /> Tópicos ({subject.subtopics.length})
+                      </h4>
+                      {subject.subtopics.length === 0 ? (
+                        <div className="text-zinc-400 text-sm italic p-4 text-center border border-dashed border-zinc-200 rounded-lg">
+                           Sem subtópicos. Adicione na aba "Assuntos".
+                        </div>
+                      ) : (
+                        <ul className="space-y-1">
+                          {subject.subtopics.map(st => (
+                            <li key={st.id} className="group flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-50 transition-colors">
+                               <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0 transition-colors", st.isCompleted ? "bg-green-500" : "bg-zinc-300")} />
+                               <span className={cn("text-sm leading-relaxed transition-colors", st.isCompleted ? "text-zinc-400 line-through" : "text-zinc-700 font-medium")}>
+                                 {st.title}
+                               </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                  </div>
+
+                  {/* Notes Section (Pinned to Bottom of Left Col) */}
+                  <div className="p-5 bg-zinc-50 border-t border-zinc-100">
+                      <div className="flex items-center gap-2 mb-2">
+                         <StickyNote className="w-3.5 h-3.5 text-zinc-400" />
+                         <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Anotações</span>
+                      </div>
+                      <textarea
+                        value={scheduleData.notes || ''}
+                        onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { notes: e.target.value })}
+                        className="w-full h-24 text-sm p-3 rounded-xl border border-zinc-200 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white shadow-sm"
+                        placeholder="Escreva observações, dúvidas ou lembretes aqui..."
+                      />
+                  </div>
+               </div>
+
+               {/* Right Column: Calendar & Planning */}
+               <div className="w-full md:w-[380px] bg-zinc-50/50 flex flex-col h-full overflow-y-auto">
+                  <div className="p-5 flex items-center justify-between border-b border-zinc-100 bg-white">
+                      <span className="font-bold text-zinc-900 flex items-center gap-2">
+                         <Calendar className="w-4 h-4 text-indigo-600" /> Planejamento
+                      </span>
+                      <Button variant="ghost" size="icon" onClick={() => setIsExpanded(false)} className="h-8 w-8 -mr-2">
+                         <X className="w-4 h-4" />
+                      </Button>
+                  </div>
+
+                  <div className="p-5 space-y-6">
+                     {/* Goal Input */}
+                     <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm space-y-3">
+                        <div className="flex justify-between items-center">
+                           <label className="text-xs font-bold text-zinc-500 uppercase">Meta Mensal (Horas)</label>
+                           <Clock className="w-4 h-4 text-indigo-400" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                           <Input 
+                              type="number"
+                              className="flex-1 text-lg font-bold h-12 bg-zinc-50 border-zinc-200 text-center"
+                              value={scheduleData.monthlyGoal || 0}
+                              onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { monthlyGoal: parseInt(e.target.value) || 0 })}
+                           />
+                           <div className="text-xs text-zinc-400 font-medium w-20 leading-tight">
+                              ~{hoursPerDay}h <br/> por dia
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* Calendar Grid */}
+                     <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                           <span className="text-xs font-bold text-zinc-500 uppercase">Dias de Estudo</span>
+                           <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">
+                              {plannedDays.length} selecionados
+                           </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                            {['D','S','T','Q','Q','S','S'].map((d, i) => (
+                              <span key={i} className="text-[10px] font-bold text-zinc-400">{d}</span>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1.5">
+                             {calendarGrid.map((day, i) => {
+                                const dateStr = formatDate(day);
+                                const isSelected = plannedDays.includes(dateStr);
+                                const isCurrentMonth = dateStr.startsWith(monthId);
+                                
+                                if (!isCurrentMonth) return <div key={i} />;
+
+                                return (
+                                   <motion.div 
+                                      key={i}
+                                      whileTap={{ scale: 0.9 }}
+                                      onClick={() => onTogglePlannedDay(subject.id, monthId, dateStr)}
+                                      className={cn(
+                                         "aspect-square rounded-lg flex items-center justify-center text-xs font-medium cursor-pointer transition-all border",
+                                         isSelected 
+                                           ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200" 
+                                           : "bg-zinc-50 border-transparent text-zinc-500 hover:bg-white hover:border-zinc-300"
+                                      )}
+                                   >
+                                      {day.getDate()}
+                                   </motion.div>
+                                );
+                             })}
+                        </div>
+                     </div>
+
+                     <div className="text-center">
+                        <p className="text-xs text-zinc-400">
+                           Clique nos dias acima para agendar sessões de estudo para esta matéria.
+                        </p>
                      </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs text-zinc-400">Selecione os dias da semana para estudar esta matéria:</p>
-                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                      {['D','S','T','Q','Q','S','S'].map((d, i) => (
-                        <span key={i} className="text-[10px] font-bold text-zinc-400">{d}</span>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                       {calendarGrid.map((day, i) => {
-                          const dateStr = formatDate(day);
-                          // Only check if it belongs to the month logically for styling, but allow selection
-                          const targetDate = new Date(monthId + '-01');
-                          // We allow selecting ANY day shown in the grid, but usually user wants current month.
-                          // The requirement is "all days of the month... unrestricted".
-                          // The grid generates dates. We make them all clickable.
-                          const isCurrentMonth = day.getMonth() === targetDate.getMonth();
-                          const isSelected = plannedDays.includes(dateStr);
-                          
-                          return (
-                             <div 
-                                key={i}
-                                onClick={() => onTogglePlannedDay(subject.id, monthId, dateStr)}
-                                className={cn(
-                                   "aspect-square rounded-lg flex items-center justify-center text-xs font-medium cursor-pointer transition-all border",
-                                   isSelected 
-                                     ? "bg-indigo-600 border-indigo-600 text-white shadow-sm" 
-                                     : isCurrentMonth 
-                                        ? "bg-zinc-50 border-transparent text-zinc-500 hover:bg-white hover:border-zinc-300"
-                                        : "bg-zinc-50/50 border-transparent text-zinc-300 hover:bg-white hover:border-zinc-200"
-                                )}
-                             >
-                                {day.getDate()}
-                             </div>
-                          );
-                       })}
-                    </div>
-                    <div className="flex justify-between items-center text-xs pt-2 border-t border-zinc-100">
-                       <span className="text-zinc-500">{plannedDays.length} dias selecionados</span>
-                       <span className="text-indigo-600 font-medium">~{hoursPerDay}h por dia planejado</span>
-                    </div>
-                  </div>
                </div>
-
-               {/* Notes Section */}
-               <div className="space-y-2">
-                  <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-                    <StickyNote className="w-3 h-3" /> Notas
-                  </h5>
-                  <textarea
-                    value={scheduleData.notes || ''}
-                    onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { notes: e.target.value })}
-                    placeholder="Adicione observações, links ou lembretes sobre esta matéria..."
-                    className="w-full min-h-[80px] text-sm p-3 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 resize-none"
-                  />
-               </div>
-
-               {/* Subtopics Section */}
-               <div>
-                  <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <BookOpen className="w-3 h-3" /> Tópicos de Estudo
-                  </h5>
-                  <div className="space-y-2">
-                    {subject.subtopics.length === 0 && (
-                      <p className="text-sm text-zinc-400 italic">Nenhum tópico cadastrado.</p>
-                    )}
-                    {subject.subtopics.map(sub => (
-                      <div 
-                        key={sub.id} 
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
-                          sub.isCompleted ? "bg-green-50/50 border-green-100" : "bg-white border-zinc-200 hover:border-indigo-200"
-                        )}
-                        onClick={() => onToggleSubtopic(subject.id, sub.id)}
-                      >
-                         <div className={cn(
-                           "w-5 h-5 rounded-full border flex items-center justify-center transition-colors",
-                           sub.isCompleted ? "bg-green-500 border-green-500" : "border-zinc-300 group-hover:border-indigo-400"
-                         )}>
-                            {sub.isCompleted && <Check className="w-3 h-3 text-white" />}
-                         </div>
-                         <span className={cn(
-                           "text-sm font-medium flex-1",
-                           sub.isCompleted ? "text-zinc-400 line-through" : "text-zinc-700"
-                         )}>{sub.title}</span>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-
-               {/* Sessions Log Section */}
-               <div>
-                  <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Clock className="w-3 h-3" /> Sessões Realizadas
-                  </h5>
-                  <div className="space-y-2">
-                     {subjectSessions.length === 0 ? (
-                       <p className="text-sm text-zinc-400 italic">Nenhuma sessão registrada neste mês.</p>
-                     ) : (
-                       subjectSessions.map(session => (
-                         <div key={session.id} className="flex items-center justify-between text-sm p-3 bg-white rounded-xl border border-zinc-200">
-                            <div className="flex items-center gap-3">
-                               <div className={cn(
-                                 "w-2 h-2 rounded-full",
-                                 session.status === 'completed' ? "bg-green-400" : "bg-red-400"
-                               )} />
-                               <span className="text-zinc-700">
-                                 {session.date.split('-').reverse().join('/')}
-                               </span>
-                               <span className="text-zinc-400">•</span>
-                               <span className="font-medium text-zinc-900">
-                                 {Math.floor(session.duration / 60)} min
-                               </span>
-                            </div>
-                            
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={cn(
-                                "h-7 text-xs px-2",
-                                session.status === 'completed' ? "text-green-600 hover:text-green-700" : "text-red-500 hover:text-red-600"
-                              )}
-                              onClick={() => onUpdateSessionStatus(session.id, session.status === 'completed' ? 'incomplete' : 'completed')}
-                            >
-                              {session.status === 'completed' ? 'Concluído' : 'Incompleto'}
-                            </Button>
-                         </div>
-                       ))
-                     )}
-                  </div>
-               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 };
 
@@ -717,7 +682,7 @@ const ScheduleTab = () => {
                   layout
                   onClick={() => setViewingMonthId(month.id)}
                   className={cn(
-                    "bg-white border rounded-3xl flex flex-col h-[280px] shadow-sm cursor-pointer overflow-hidden group relative transition-all",
+                    "bg-white border rounded-3xl flex flex-col h-auto min-h-[220px] shadow-sm cursor-pointer overflow-hidden group relative transition-all",
                     isCurrentMonth ? "border-indigo-200 ring-4 ring-indigo-50/50" : "border-zinc-200 hover:border-indigo-200 hover:shadow-lg"
                   )}
                 >
@@ -728,9 +693,9 @@ const ScheduleTab = () => {
                   )}>
                     <div>
                       <span className={cn(
-                        "font-bold text-lg capitalize block",
+                        "font-bold text-lg capitalize block line-clamp-1",
                         isCurrentMonth ? "text-indigo-900" : "text-zinc-700"
-                      )}>{month.name}</span>
+                      )} title={month.name}>{month.name}</span>
                       <span className="text-xs text-zinc-500 font-medium">{month.year}</span>
                       {isCurrentMonth && <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Atual</span>}
                     </div>
@@ -750,7 +715,7 @@ const ScheduleTab = () => {
                   </div>
 
                   {/* Card Body */}
-                  <div className="flex-1 p-5 flex flex-col justify-between">
+                  <div className="flex-1 p-5 flex flex-col gap-6">
                     
                     {/* Visual Representation of Content */}
                     <div className="space-y-2">
@@ -760,7 +725,7 @@ const ScheduleTab = () => {
                             <p className="text-xs text-zinc-400">Sem planejamento</p>
                           </div>
                       ) : (
-                          <div className="flex flex-wrap gap-1.5 content-start h-[100px] overflow-hidden mask-gradient-b">
+                          <div className="flex flex-wrap gap-1.5 content-start">
                             {Array.from({length: Math.min(12, stats.subjectCount)}).map((_, i) => (
                                 <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 opacity-80" />
                             ))}
@@ -770,7 +735,7 @@ const ScheduleTab = () => {
                     </div>
 
                     {/* Progress Footer */}
-                    <div>
+                    <div className="mt-auto">
                       <div className="flex justify-between text-xs font-medium text-zinc-500 mb-2">
                           <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Progresso</span>
                           <span className={cn(stats.progress > 0 ? "text-indigo-600" : "text-zinc-400")}>{Math.round(stats.progress)}%</span>
@@ -794,7 +759,7 @@ const ScheduleTab = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setIsAddingMonth(true)}
-                className="border-2 border-dashed border-zinc-200 rounded-3xl flex flex-col items-center justify-center h-[280px] text-zinc-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50/10 transition-all gap-4"
+                className="border-2 border-dashed border-zinc-200 rounded-3xl flex flex-col items-center justify-center h-auto min-h-[220px] text-zinc-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50/10 transition-all gap-4"
             >
                 <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center">
                     <Plus className="w-8 h-8" />
@@ -865,28 +830,28 @@ const ScheduleTab = () => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2rem] p-0 max-w-4xl w-full shadow-2xl border border-zinc-100 max-h-[90vh] flex flex-col overflow-hidden"
+              className="bg-white rounded-[2rem] p-0 max-w-6xl w-full shadow-2xl border border-zinc-100 max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
               <div className="p-8 pb-4 bg-white border-b border-zinc-50 flex justify-between items-start shrink-0 z-10">
-                 <div>
-                    <h2 className="text-3xl font-bold text-zinc-900 capitalize flex items-center gap-3">
-                       {viewingMonthData.name}
-                       <span className="text-lg text-zinc-400 font-normal">{viewingMonthData.year}</span>
+                 <div className="flex-1 min-w-0 pr-4">
+                    <h2 className="text-3xl font-bold text-zinc-900 capitalize flex items-center gap-3 flex-wrap">
+                       <span className="truncate">{viewingMonthData.name}</span>
+                       <span className="text-lg text-zinc-400 font-normal whitespace-nowrap">{viewingMonthData.year}</span>
                     </h2>
                     
                     {viewingMonthStats && (
-                      <div className="flex items-center gap-6 mt-3 text-sm text-zinc-500">
-                         <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-6 mt-3 text-sm text-zinc-500 overflow-x-auto">
+                         <div className="flex items-center gap-2 whitespace-nowrap">
                             <BookOpen className="w-4 h-4 text-indigo-500" />
                             <span className="font-medium text-zinc-700">{viewingMonthStats.subjectCount}</span> matérias
                          </div>
-                         <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 whitespace-nowrap">
                             <Clock className="w-4 h-4 text-orange-500" />
                             <span className="font-medium text-zinc-700">{viewingMonthStats.totalStudiedHours.toFixed(1)}h</span> estudadas
                          </div>
-                         <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 whitespace-nowrap">
                              <div className="w-20 h-2 bg-zinc-100 rounded-full overflow-hidden">
                                 <div className="h-full bg-green-500 transition-all duration-700" style={{width: `${viewingMonthStats.progress}%`}} />
                              </div>
@@ -896,14 +861,22 @@ const ScheduleTab = () => {
                     )}
                  </div>
                  
-                 <div className="flex gap-2">
+                 <div className="flex gap-2 shrink-0">
                     <Button 
                       variant="outline" 
                       onClick={() => { setManagingMonthId(viewingMonthId); setViewingMonthId(null); }}
-                      className="rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                      className="rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700 hidden sm:flex"
                     >
                       <Edit3 className="w-4 h-4 mr-2" />
                       Gerenciar Matérias
+                    </Button>
+                     <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => { setManagingMonthId(viewingMonthId); setViewingMonthId(null); }}
+                      className="rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700 sm:hidden"
+                    >
+                      <Edit3 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => setViewingMonthId(null)} className="rounded-full hover:bg-zinc-100">
                       <X className="w-6 h-6 text-zinc-400" />
@@ -912,7 +885,7 @@ const ScheduleTab = () => {
               </div>
 
               {/* Modal Body - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-8 bg-zinc-50/50">
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-zinc-50/50">
                  <div className="space-y-4">
                     {viewingMonthSubjects.length === 0 ? (
                        <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -927,7 +900,7 @@ const ScheduleTab = () => {
                           </Button>
                        </div>
                     ) : (
-                       <div className="grid grid-cols-1 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
                           {viewingMonthSubjects.map(subject => (
                              <ScheduleSubjectCard 
                                 key={subject.id}
@@ -968,8 +941,8 @@ const ScheduleTab = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6 shrink-0">
-                <div>
-                    <h3 className="font-bold text-xl text-zinc-900 capitalize">
+                <div className="flex-1 min-w-0 pr-4">
+                    <h3 className="font-bold text-xl text-zinc-900 capitalize truncate">
                         Planejamento de {calendarMonths.find(m => m.id === managingMonthId)?.name}
                     </h3>
                     <p className="text-zinc-500 text-sm">Marque as matérias para estudar neste mês.</p>
@@ -988,9 +961,9 @@ const ScheduleTab = () => {
 
                     return (
                         <div key={exam.id} className="space-y-3">
-                            <h4 className="font-bold text-zinc-800 text-sm flex items-center gap-2 bg-zinc-50 p-2 rounded-lg sticky top-0 z-10 backdrop-blur-sm bg-zinc-50/90">
-                                <ArrowRight className="w-3 h-3 text-zinc-400" />
-                                {exam.name}
+                            <h4 className="font-bold text-zinc-800 text-sm flex items-center gap-2 bg-zinc-50 p-2 rounded-lg sticky top-0 z-10 backdrop-blur-sm bg-zinc-50/90 truncate">
+                                <ArrowRight className="w-3 h-3 text-zinc-400 shrink-0" />
+                                <span className="truncate">{exam.name}</span>
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
                                 {examSubjects.map(sub => {
