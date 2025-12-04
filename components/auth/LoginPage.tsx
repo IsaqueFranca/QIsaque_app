@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -33,6 +34,27 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onCancel }) => {
     }
   };
 
+  const handleAuthError = (err: any) => {
+    console.error("Auth Error:", err);
+    setLoading(false);
+    
+    if (err.code === 'auth/invalid-credential') {
+      setError("Senha ou e-mail inválidos.");
+    } else if (err.code === 'auth/email-already-in-use') {
+      setError("Este e-mail já está cadastrado.");
+    } else if (err.code === 'auth/weak-password') {
+      setError("A senha deve ter pelo menos 6 caracteres.");
+    } else if (err.code === 'auth/unauthorized-domain') {
+      setError(`Domínio não autorizado (${window.location.hostname}). Adicione este domínio no Firebase Console em Auth > Settings > Authorized Domains.`);
+    } else if (err.code === 'auth/popup-closed-by-user') {
+      setError("Login cancelado pelo usuário.");
+    } else if (err.code === 'auth/popup-blocked') {
+      setError("O navegador bloqueou o popup. Permita popups para este site.");
+    } else {
+      setError("Erro: " + (err.message || "Falha na autenticação."));
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
@@ -40,8 +62,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onCancel }) => {
       const result = await signInWithPopup(auth, googleProvider);
       handleAuthSuccess(result.user);
     } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com Google');
-      setLoading(false);
+      handleAuthError(err);
     }
   };
 
@@ -58,11 +79,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onCancel }) => {
       }
       handleAuthSuccess(result.user);
     } catch (err: any) {
-      if (err.code === 'auth/invalid-credential') setError("Senha ou e-mail inválidos.");
-      else if (err.code === 'auth/email-already-in-use') setError("Este e-mail já está cadastrado.");
-      else if (err.code === 'auth/weak-password') setError("A senha deve ter pelo menos 6 caracteres.");
-      else setError("Erro na autenticação. Verifique os dados.");
-      setLoading(false);
+      handleAuthError(err);
     }
   };
 
@@ -86,9 +103,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onCancel }) => {
         </div>
 
         {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-center gap-2 mb-6 text-sm">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl flex items-start gap-2 mb-6 text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="break-words">{error}</span>
             </div>
         )}
 
