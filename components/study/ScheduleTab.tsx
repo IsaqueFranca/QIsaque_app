@@ -980,7 +980,7 @@ const ScheduleTab = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-                {months.length === 0 && <p className="text-zinc-400 text-center py-10">Crie provas na aba 'Provas' primeiro.</p>}
+                {months.length === 0 && <p className="text-zinc-400 text-center py-10">Crie assuntos na aba 'Assuntos' primeiro.</p>}
                 
                 {months.map(exam => {
                     const examSubjects = subjects.filter(s => s.monthId === exam.id);

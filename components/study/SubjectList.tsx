@@ -108,7 +108,7 @@ const SubjectList: React.FC<SubjectListProps> = ({
             <ArrowLeft className="w-6 h-6 text-zinc-500" />
         </Button>
         <div>
-            <h2 className="text-2xl font-bold text-zinc-900">Conteúdo da Prova</h2>
+            <h2 className="text-2xl font-bold text-zinc-900">Conteúdo do Assunto</h2>
             <div className="text-xs text-zinc-400">
                 {subjects.length} matérias cadastradas
             </div>
@@ -150,7 +150,7 @@ const SubjectList: React.FC<SubjectListProps> = ({
             </div>
             <h3 className="text-lg font-semibold text-zinc-900">Nenhuma matéria adicionada</h3>
             <p className="text-zinc-500 max-w-xs mx-auto mt-2">
-                Comece adicionando as disciplinas que cairão na prova usando o campo acima.
+                Comece adicionando as disciplinas que cairão neste assunto usando o campo acima.
             </p>
           </div>
         )}

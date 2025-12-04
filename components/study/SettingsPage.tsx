@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Settings, HealthDegree } from "../../types";
 import { Button } from "../ui/button";
@@ -137,7 +138,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             <Input
               value={formData.userName}
               onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
-              placeholder="Ex: Dr. Isaque"
+              placeholder="Ex: Isaque"
               className="bg-white"
             />
           </div>

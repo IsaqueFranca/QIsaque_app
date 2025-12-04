@@ -107,7 +107,7 @@ export const useStudyStore = create<StudyState>()(
         shortBreakDuration: 5,
         longBreakDuration: 15,
         monthlyGoalHours: 40,
-        userName: 'Dr(a). Estudante',
+        userName: '',
         finalGoal: 'Aprovação na Residência',
         healthDegree: 'Medicine',
       },

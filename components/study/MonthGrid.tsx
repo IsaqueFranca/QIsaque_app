@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { Month } from "../../types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -148,12 +149,12 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-           <h3 className="text-2xl font-bold tracking-tight text-zinc-900">Minhas Provas</h3>
-           <p className="text-zinc-500 text-sm">Gerencie seus exames e cronogramas de estudo.</p>
+           <h3 className="text-2xl font-bold tracking-tight text-zinc-900">Meus Assuntos</h3>
+           <p className="text-zinc-500 text-sm">Gerencie seus assuntos e cronogramas de estudo.</p>
         </div>
         <Button onClick={() => setIsAdding(!isAdding)} variant="default" className="rounded-full px-6">
           {isAdding ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-          {isAdding ? "Cancelar" : "Nova Prova"}
+          {isAdding ? "Cancelar" : "Novo Assunto"}
         </Button>
       </div>
 
@@ -169,7 +170,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
             <Input
               value={newMonthName}
               onChange={(e) => setNewMonthName(e.target.value)}
-              placeholder="Ex: Residência USP 2025"
+              placeholder="Ex: Cardiologia"
               className="flex-[2] bg-white h-12 text-lg px-4 border-zinc-200"
               autoFocus
             />
@@ -287,8 +288,8 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
              <FileText className="w-8 h-8 text-zinc-300" />
            </div>
            <h3 className="text-lg font-semibold text-zinc-900">Comece sua jornada</h3>
-           <p className="text-zinc-500 max-w-xs mx-auto mt-2 mb-6">Crie sua primeira prova para organizar o conteúdo programático.</p>
-           <Button onClick={() => setIsAdding(true)} variant="default" size="lg" className="rounded-full">Criar Prova</Button>
+           <p className="text-zinc-500 max-w-xs mx-auto mt-2 mb-6">Crie seu primeiro assunto para organizar o conteúdo.</p>
+           <Button onClick={() => setIsAdding(true)} variant="default" size="lg" className="rounded-full">Criar Assunto</Button>
          </div>
       )}
 
@@ -312,9 +313,9 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
                  <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="font-bold text-xl text-zinc-900 mb-2">Excluir Prova?</h3>
+              <h3 className="font-bold text-xl text-zinc-900 mb-2">Excluir Assunto?</h3>
               <p className="text-zinc-500 leading-relaxed mb-8">
-                Esta ação é irreversível. Todos os assuntos e progresso desta prova serão apagados.
+                Esta ação é irreversível. Todos os tópicos e progresso deste assunto serão apagados.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" className="h-12" onClick={() => setDeleteId(null)}>Voltar</Button>
@@ -362,7 +363,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
               {aiStep === 'input' ? (
                 <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
                   <p className="text-sm text-zinc-600">
-                    Cole abaixo a lista de assuntos do seu edital, ementa ou anotações. A IA vai identificar, separar e organizar os tópicos automaticamente para você.
+                    Cole abaixo a lista de tópicos do seu edital, ementa ou anotações. A IA vai identificar, separar e organizar os tópicos automaticamente para você.
                   </p>
                   <textarea 
                     className="flex-1 min-h-[200px] w-full p-4 rounded-xl border border-zinc-200 bg-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none transition-all"
@@ -406,7 +407,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                     {aiDraftSubjects.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-zinc-400">
                          <FileText className="w-8 h-8 mb-2 opacity-20" />
-                         <p className="text-sm">Nenhum assunto encontrado.</p>
+                         <p className="text-sm">Nenhum tópico encontrado.</p>
                       </div>
                     ) : (
                       aiDraftSubjects.map((subject) => (
@@ -434,7 +435,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                      <Input 
                        value={manualDraftInput}
                        onChange={(e) => setManualDraftInput(e.target.value)}
-                       placeholder="Adicionar assunto manualmente..."
+                       placeholder="Adicionar tópico manualmente..."
                        className="bg-white"
                      />
                      <Button type="submit" variant="secondary" disabled={!manualDraftInput.trim()}>

@@ -46,6 +46,8 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
     };
   };
 
+  const displayName = settings.userName ? settings.userName.split(' ')[0] : 'Estudante';
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Hero Header */}
@@ -53,7 +55,7 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 flex items-center gap-3">
             <greeting.icon className="w-8 h-8 text-orange-500" />
-            {greeting.text}, {settings.userName.split(' ')[0]}!
+            {greeting.text}, {displayName}!
           </h1>
           <p className="text-zinc-500 mt-2 text-lg">
             Hoje é <span className="font-semibold text-zinc-700 capitalize">{today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>.

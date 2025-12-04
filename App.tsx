@@ -80,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
               >
                 <FolderOpen className={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
-                Provas
+                Assuntos
               </button>
               <button
                 onClick={() => { setTab("schedule"); setIsMobileMenuOpen(false); }}
@@ -100,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
               >
                 <Play className={cn("w-4 h-4", tab === "study" && "fill-current")} />
-                Focar
+                Timer
               </button>
               <button
                 onClick={() => { setTab("statistics"); setIsMobileMenuOpen(false); }}
@@ -329,9 +329,9 @@ const App = () => {
                   <span className="text-zinc-900 capitalize">
                       {tab === "today" ? "Visão Geral" : 
                        tab === "planning" ? "Planejamento" : 
-                       tab === "provas" ? "Minhas Provas" : 
+                       tab === "provas" ? "Meus Assuntos" : 
                        tab === "schedule" ? "Cronograma" :
-                       tab === "study" ? "Área de Foco" : 
+                       tab === "study" ? "Timer" : 
                        tab === "statistics" ? "Relatórios" : "Ajustes"}
                   </span>
                 </div>
