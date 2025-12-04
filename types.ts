@@ -19,6 +19,7 @@ export interface Subtopic {
 export interface Month {
   id: string;
   name: string;
+  year?: number; // Added year field
 }
 
 export interface Subject {

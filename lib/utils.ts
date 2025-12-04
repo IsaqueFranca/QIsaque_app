@@ -11,7 +11,11 @@ export function generateId(): string {
 }
 
 export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  // Use local time instead of UTC (toISOString) to avoid date shifts in Heatmap
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function subDays(date: Date, amount: number): Date {
@@ -30,6 +34,11 @@ export const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
+
+export function getMonthIndex(name: string): number {
+  const normalized = name.toLowerCase();
+  return MONTH_NAMES.findIndex(m => normalized.includes(m.toLowerCase()));
+}
 
 // --- Heatmap & Streak Utilities ---
 

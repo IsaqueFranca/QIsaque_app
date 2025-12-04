@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Month } from "../../types";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Edit2, Trash2, Check, X, Calendar, AlertCircle, ArrowRight } from "lucide-react";
@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
 import { useStudyStore } from "../../hooks/useStudyStore";
-import { cn } from "../../lib/utils";
+import { cn, getMonthIndex } from "../../lib/utils";
 
 interface MonthGridProps {
   months: Month[];
@@ -16,6 +16,7 @@ interface MonthGridProps {
 const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newMonthName, setNewMonthName] = useState("");
+  const [newMonthYear, setNewMonthYear] = useState(new Date().getFullYear());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -25,7 +26,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
   const handleAddMonth = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMonthName.trim()) {
-      addMonth(newMonthName);
+      addMonth(newMonthName, newMonthYear);
       setNewMonthName("");
       setIsAdding(false);
     }
@@ -66,6 +67,26 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
     return Math.round((completedSubtopics / totalSubtopics) * 100);
   };
 
+  const sortedMonths = useMemo(() => {
+    return [...months].sort((a, b) => {
+      // 1. Compare Year Descending
+      const yearA = a.year || 0;
+      const yearB = b.year || 0;
+      if (yearA !== yearB) return yearB - yearA;
+
+      // 2. Compare Month Index Descending (if present in name)
+      const indexA = getMonthIndex(a.name);
+      const indexB = getMonthIndex(b.name);
+      
+      // If neither has a recognizable month name, keep order or sort alphabetically?
+      // Let's stick to month index if found.
+      if (indexA !== -1 && indexB !== -1) {
+        return indexB - indexA;
+      }
+      return 0;
+    });
+  }, [months]);
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
@@ -86,14 +107,21 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             onSubmit={handleAddMonth}
-            className="flex gap-3 mb-8 overflow-hidden bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm"
+            className="flex flex-col md:flex-row gap-3 mb-8 overflow-hidden bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm"
           >
             <Input
               value={newMonthName}
               onChange={(e) => setNewMonthName(e.target.value)}
-              placeholder="Ex: Março - Reta Final"
-              className="flex-1 bg-white h-12 text-lg px-4 border-zinc-200"
+              placeholder="Ex: Março"
+              className="flex-[2] bg-white h-12 text-lg px-4 border-zinc-200"
               autoFocus
+            />
+             <Input
+              type="number"
+              value={newMonthYear}
+              onChange={(e) => setNewMonthYear(parseInt(e.target.value))}
+              placeholder="Ano"
+              className="flex-1 bg-white h-12 text-lg px-4 border-zinc-200"
             />
             <Button type="submit" size="lg" className="rounded-xl h-12 px-8">Salvar</Button>
           </motion.form>
@@ -101,7 +129,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
       </AnimatePresence>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {months.map((month) => {
+        {sortedMonths.map((month) => {
           const progress = getMonthProgress(month.id);
           const isEditing = editingId === month.id;
           
@@ -128,10 +156,17 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                   </div>
                 ) : (
                   <>
-                     <div 
-                        className="w-10 h-10 rounded-full bg-zinc-900 text-zinc-50 flex items-center justify-center shadow-lg shadow-zinc-500/10 group-hover:scale-110 transition-transform duration-300"
-                     >
-                        <Calendar className="w-5 h-5" />
+                     <div className="flex items-center gap-3">
+                        <div 
+                            className="w-10 h-10 rounded-full bg-zinc-900 text-zinc-50 flex items-center justify-center shadow-lg shadow-zinc-500/10 group-hover:scale-110 transition-transform duration-300"
+                        >
+                            <Calendar className="w-5 h-5" />
+                        </div>
+                        {month.year && (
+                           <span className="text-sm font-semibold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-md">
+                             {month.year}
+                           </span>
+                        )}
                      </div>
                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                         <Button
@@ -180,7 +215,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
         })}
       </div>
       
-      {months.length === 0 && !isAdding && (
+      {sortedMonths.length === 0 && !isAdding && (
          <div className="text-center py-20">
            <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
              <Calendar className="w-8 h-8 text-zinc-300" />

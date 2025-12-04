@@ -10,7 +10,7 @@ interface StudyState {
   settings: Settings;
   
   // Month Actions
-  addMonth: (name: string) => void;
+  addMonth: (name: string, year?: number) => void;
   editMonth: (id: string, name: string) => void;
   deleteMonth: (id: string) => void;
 
@@ -49,8 +49,8 @@ export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
       months: [
-        { id: 'default-1', name: 'Janeiro' },
-        { id: 'default-2', name: 'Fevereiro' },
+        { id: 'default-1', name: 'Janeiro', year: new Date().getFullYear() },
+        { id: 'default-2', name: 'Fevereiro', year: new Date().getFullYear() },
       ],
       subjects: [],
       sessions: [],
@@ -65,8 +65,12 @@ export const useStudyStore = create<StudyState>()(
       },
 
       // Month Actions
-      addMonth: (name) => set((state) => ({
-        months: [...state.months, { id: generateId(), name }]
+      addMonth: (name, year) => set((state) => ({
+        months: [...state.months, { 
+          id: generateId(), 
+          name,
+          year: year || new Date().getFullYear()
+        }]
       })),
 
       editMonth: (id, name) => set((state) => ({
