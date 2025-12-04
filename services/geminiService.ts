@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// A chave será obtida via process.env.API_KEY conforme diretrizes
+// A chave será obtida via process.env.API_KEY, que é injetada pelo vite.config.ts durante o build
 const getApiKey = () => {
   return process.env.API_KEY;
 };
@@ -29,8 +29,8 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
       Objetivo: Preparação para provas de Residência ou Concursos no Brasil.
 
       Diretrizes:
-      1. O idioma DEVE ser Português do Brasil (PT-BR).
-      2. Mantenha os títulos concisos (máximo 6 palavras).
+      1. O idioma DEVE ser estritamente Português do Brasil (PT-BR).
+      2. Mantenha os títulos concisos e diretos.
       3. Foque nos tópicos de maior incidência (high-yield) nas provas brasileiras.
       4. Evite introduções, retorne apenas os dados estruturados.`,
       config: {
@@ -65,14 +65,15 @@ export const organizeSubjectsFromText = async (text: string): Promise<string[]> 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analise o texto fornecido pelo usuário, que contém uma lista desorganizada de assuntos/matérias de estudo (ex: edital de residência ou ementa de curso).
+      contents: `Você é um assistente organizacional especializado em editais de concursos e residências médicas no Brasil.
       
-      Sua tarefa:
-      1. Identificar e extrair os nomes das matérias principais.
-      2. Organizar os nomes de forma padronizada, com primeira letra maiúscula (Title Case).
-      3. Remover duplicatas óbvias.
-      4. Traduzir para Português do Brasil se estiver em outra língua.
-      5. Retornar apenas a lista limpa.
+      Sua tarefa: Analisar o texto fornecido (que pode ser um edital copiado, um sumário ou anotações) e extrair uma lista limpa de matérias/disciplinas.
+
+      Diretrizes Obrigatórias:
+      1. Idioma de Saída: Português do Brasil (PT-BR). Se houver termos em inglês, traduza-os para o equivalente técnico usado no Brasil.
+      2. Formatação: Use "Title Case" para nomes próprios ou convenções brasileiras (ex: "Saúde Pública", "Clínica Médica").
+      3. Limpeza: Remova numeração (1.1, 2.0), pontuação excessiva e duplicatas.
+      4. Contexto: Ignore textos irrelevantes (datas, locais de prova, nomes de fiscais). Foque apenas no CONTEÚDO PROGRAMÁTICO.
       
       Texto do usuário: "${text}"`,
       config: {
