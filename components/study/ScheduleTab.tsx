@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays } from "lucide-react";
+import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
@@ -13,6 +13,15 @@ const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
+
+// --- Helper Functions ---
+
+const getPlannedDurationSeconds = (subject: Subject, monthId: string): number => {
+  const sched = subject.schedules?.[monthId];
+  if (!sched || !sched.monthlyGoal || !sched.plannedDays || sched.plannedDays.length === 0) return 3600; // default 1h
+  // Return average seconds per planned day
+  return Math.floor((sched.monthlyGoal * 3600) / sched.plannedDays.length);
+};
 
 // --- Components ---
 
@@ -345,6 +354,184 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
   );
 };
 
+// --- Summary View Component ---
+
+interface SummaryMonthProps {
+  monthId: string;
+  monthName: string;
+  year: number;
+  subjects: Subject[];
+  sessions: Session[];
+  onToggleDayCompletion: (subjectId: string, date: string, isDone: boolean) => void;
+}
+
+const SummaryMonthItem: React.FC<SummaryMonthProps> = ({ monthId, monthName, year, subjects, sessions, onToggleDayCompletion }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  // Aggregate Data
+  const plannedEvents = useMemo(() => {
+    const events: { date: string; subject: Subject; isDone: boolean }[] = [];
+    let totalPlannedHours = 0;
+    
+    subjects.forEach(sub => {
+      const sched = sub.schedules?.[monthId];
+      if (sched) {
+        totalPlannedHours += sched.monthlyGoal || 0;
+        if (sched.plannedDays) {
+          sched.plannedDays.forEach(date => {
+             // Check if session exists
+             const done = sessions.some(s => s.subjectId === sub.id && s.date === date && s.status === 'completed');
+             events.push({ date, subject: sub, isDone: done });
+          });
+        }
+      }
+    });
+
+    // Group by Date
+    const grouped: Record<string, typeof events> = {};
+    events.forEach(e => {
+       if (!grouped[e.date]) grouped[e.date] = [];
+       grouped[e.date].push(e);
+    });
+
+    // Sort Dates
+    const sortedDates = Object.keys(grouped).sort();
+    
+    return { 
+       sortedDates, 
+       grouped, 
+       totalPlannedHours 
+    };
+  }, [subjects, sessions, monthId]);
+
+  // Calculate actual progress
+  const studiedSeconds = sessions
+    .filter(s => s.date.startsWith(monthId) && s.status === 'completed')
+    .reduce((acc, s) => acc + s.duration, 0);
+  const studiedHours = studiedSeconds / 3600;
+  
+  const progress = plannedEvents.totalPlannedHours > 0 
+    ? Math.min(100, (studiedHours / plannedEvents.totalPlannedHours) * 100) 
+    : 0;
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      <div 
+         onClick={() => setExpanded(!expanded)}
+         className="p-5 cursor-pointer flex items-center justify-between hover:bg-zinc-50/50"
+      >
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="font-bold text-lg text-zinc-900 capitalize">{monthName}</h3>
+            <span className="text-sm text-zinc-400 font-medium">{year}</span>
+          </div>
+          
+          <div className="flex items-center gap-4 text-xs font-medium">
+             <span className="text-zinc-500">
+                {plannedEvents.sortedDates.length} dias c/ estudo
+             </span>
+             <span className="text-zinc-300">|</span>
+             <div className="flex items-center gap-1.5">
+               <span className={cn(progress >= 100 ? "text-green-600" : "text-indigo-600")}>
+                 {studiedHours.toFixed(1)}h
+               </span>
+               <span className="text-zinc-400">/ {plannedEvents.totalPlannedHours}h planejadas</span>
+             </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+           <div className="w-24 hidden sm:block">
+              <Progress value={progress} className={cn("h-2", progress >= 100 ? "bg-green-100" : "bg-zinc-100")} />
+           </div>
+           {expanded ? <ChevronUp className="text-zinc-400" /> : <ChevronDown className="text-zinc-400" />}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div 
+             initial={{ height: 0 }} 
+             animate={{ height: "auto" }} 
+             exit={{ height: 0 }} 
+             className="border-t border-zinc-100 bg-zinc-50/30"
+          >
+             <div className="p-6 space-y-6">
+                {plannedEvents.sortedDates.length === 0 ? (
+                   <p className="text-center text-zinc-400 py-4 text-sm">Nenhum estudo agendado para este mês.</p>
+                ) : (
+                   <div className="space-y-6 relative">
+                      {/* Timeline Line */}
+                      <div className="absolute left-[19px] top-2 bottom-2 w-[2px] bg-zinc-200" />
+                      
+                      {plannedEvents.sortedDates.map(dateStr => {
+                         const items = plannedEvents.grouped[dateStr];
+                         const dateObj = new Date(dateStr + 'T12:00:00'); // Fix timezone offset
+                         const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' });
+                         const dayNum = dateObj.getDate();
+                         
+                         // Check if all items for this day are done
+                         const allDone = items.every(i => i.isDone);
+
+                         return (
+                            <div key={dateStr} className="relative pl-10">
+                               {/* Timeline Dot */}
+                               <div className={cn(
+                                 "absolute left-[11px] top-1 w-[18px] h-[18px] rounded-full border-[3px] bg-white z-10",
+                                 allDone ? "border-green-500" : "border-indigo-400"
+                               )} />
+                               
+                               <div className="flex items-baseline gap-2 mb-2">
+                                  <span className="font-bold text-zinc-900 text-sm">{dayNum}</span>
+                                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{dayName}</span>
+                               </div>
+
+                               <div className="space-y-2">
+                                  {items.map((item, idx) => (
+                                     <div 
+                                        key={idx} 
+                                        className={cn(
+                                          "flex items-center justify-between p-3 rounded-xl border bg-white transition-all",
+                                          item.isDone ? "border-green-100 bg-green-50/20" : "border-zinc-200"
+                                        )}
+                                     >
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                           <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", item.isDone ? "bg-green-500" : "bg-indigo-500")} />
+                                           <span className={cn("text-sm font-medium truncate", item.isDone ? "text-green-800" : "text-zinc-700")}>
+                                              {item.subject.title}
+                                           </span>
+                                        </div>
+                                        
+                                        <button 
+                                           onClick={() => onToggleDayCompletion(item.subject.id, dateStr, item.isDone)}
+                                           className={cn(
+                                              "w-8 h-8 flex items-center justify-center rounded-lg transition-colors",
+                                              item.isDone 
+                                                ? "text-green-600 hover:bg-green-100" 
+                                                : "text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50"
+                                           )}
+                                           title={item.isDone ? "Desmarcar" : "Marcar como Concluído"}
+                                        >
+                                           {item.isDone ? <CheckSquare className="w-5 h-5" /> : <div className="w-5 h-5 border-2 border-current rounded-md" />}
+                                        </button>
+                                     </div>
+                                  ))}
+                               </div>
+                            </div>
+                         );
+                      })}
+                   </div>
+                )}
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+
+// --- Main Tab Component ---
 
 const ScheduleTab = () => {
   const { 
@@ -358,9 +545,12 @@ const ScheduleTab = () => {
     removeActiveScheduleMonth,
     toggleSubjectInMonth,
     updateSubjectSchedule,
-    toggleSubjectPlannedDay
+    toggleSubjectPlannedDay,
+    addSession,
+    deleteSession
   } = useStudyStore();
   
+  const [viewMode, setViewMode] = useState<'grid' | 'summary'>('grid');
   const [viewingMonthId, setViewingMonthId] = useState<string | null>(null);
   const [managingMonthId, setManagingMonthId] = useState<string | null>(null);
   const [isAddingMonth, setIsAddingMonth] = useState(false);
@@ -423,6 +613,32 @@ const ScheduleTab = () => {
     }
   };
 
+  // Toggle Day Completion from Summary View
+  const handleToggleDayCompletion = (subjectId: string, dateStr: string, isDone: boolean) => {
+    if (isDone) {
+      // Remove completed session(s) for this day/subject
+      const sessionsToRemove = sessions.filter(s => s.subjectId === subjectId && s.date === dateStr && s.status === 'completed');
+      sessionsToRemove.forEach(s => deleteSession(s.id));
+    } else {
+      // Add a session
+      const subject = subjects.find(s => s.id === subjectId);
+      if (!subject) return;
+      
+      const monthId = dateStr.slice(0, 7);
+      const duration = getPlannedDurationSeconds(subject, monthId);
+      
+      const dateObj = new Date(dateStr + 'T12:00:00');
+      
+      addSession({
+         subjectId,
+         date: dateStr,
+         startTime: dateObj.getTime(),
+         duration: duration,
+         status: 'completed'
+      });
+    }
+  };
+
   const viewingMonthData = viewingMonthId ? calendarMonths.find(m => m.id === viewingMonthId) : null;
   // Filter subjects that have the month key
   const viewingMonthSubjects = viewingMonthId ? subjects.filter(s => !!s.schedules && !!s.schedules[viewingMonthId]) : [];
@@ -437,115 +653,157 @@ const ScheduleTab = () => {
             <Calendar className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">Cronograma Anual</h2>
+            <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">Cronograma</h2>
             <p className="text-zinc-500 text-sm">Organize e acompanhe seu progresso mensal.</p>
           </div>
         </div>
         
-        <Button onClick={() => setIsAddingMonth(true)} className="rounded-xl shadow-lg shadow-indigo-500/20">
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Mês
-        </Button>
+        <div className="flex gap-2 bg-zinc-100 p-1 rounded-xl">
+           <button 
+             onClick={() => setViewMode('grid')}
+             className={cn(
+               "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+               viewMode === 'grid' ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+             )}
+           >
+             <LayoutGrid className="w-4 h-4" />
+             Grade
+           </button>
+           <button 
+             onClick={() => setViewMode('summary')}
+             className={cn(
+               "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+               viewMode === 'summary' ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+             )}
+           >
+             <List className="w-4 h-4" />
+             Resumo
+           </button>
+        </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {calendarMonths.map((month) => {
-          const stats = getMonthStats(month.id);
-          const isCurrentMonth = formatDate(new Date()).slice(0, 7) === month.id;
+      {viewMode === 'summary' ? (
+        <div className="space-y-6">
+           {calendarMonths.length === 0 && (
+              <div className="text-center py-20 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
+                 <p className="text-zinc-500">Nenhum mês planejado ainda.</p>
+                 <Button variant="link" onClick={() => setViewMode('grid')}>Voltar para Grade e adicionar</Button>
+              </div>
+           )}
+           {calendarMonths.map(month => (
+              <SummaryMonthItem 
+                key={month.id}
+                monthId={month.id}
+                monthName={month.name}
+                year={month.year}
+                subjects={subjects}
+                sessions={sessions}
+                onToggleDayCompletion={handleToggleDayCompletion}
+              />
+           ))}
+        </div>
+      ) : (
+        /* GRID VIEW */
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {calendarMonths.map((month) => {
+              const stats = getMonthStats(month.id);
+              const isCurrentMonth = formatDate(new Date()).slice(0, 7) === month.id;
 
-          return (
-            <motion.div 
-              key={month.id}
-              whileHover={{ y: -4 }}
-              layout
-              onClick={() => setViewingMonthId(month.id)}
-              className={cn(
-                "bg-white border rounded-3xl flex flex-col h-[280px] shadow-sm cursor-pointer overflow-hidden group relative transition-all",
-                isCurrentMonth ? "border-indigo-200 ring-4 ring-indigo-50/50" : "border-zinc-200 hover:border-indigo-200 hover:shadow-lg"
-              )}
+              return (
+                <motion.div 
+                  key={month.id}
+                  whileHover={{ y: -4 }}
+                  layout
+                  onClick={() => setViewingMonthId(month.id)}
+                  className={cn(
+                    "bg-white border rounded-3xl flex flex-col h-[280px] shadow-sm cursor-pointer overflow-hidden group relative transition-all",
+                    isCurrentMonth ? "border-indigo-200 ring-4 ring-indigo-50/50" : "border-zinc-200 hover:border-indigo-200 hover:shadow-lg"
+                  )}
+                >
+                  {/* Card Header */}
+                  <div className={cn(
+                    "p-5 flex justify-between items-center",
+                    isCurrentMonth ? "bg-indigo-50/50" : "bg-zinc-50/30"
+                  )}>
+                    <div>
+                      <span className={cn(
+                        "font-bold text-lg capitalize block",
+                        isCurrentMonth ? "text-indigo-900" : "text-zinc-700"
+                      )}>{month.name}</span>
+                      <span className="text-xs text-zinc-500 font-medium">{month.year}</span>
+                      {isCurrentMonth && <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Atual</span>}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 font-mono text-sm shadow-sm group-hover:scale-110 transition-transform">
+                        {stats.subjectCount}
+                      </div>
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); removeActiveScheduleMonth(month.id); }}
+                        className="w-8 h-8 rounded-full hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-zinc-300 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Remover mês"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="flex-1 p-5 flex flex-col justify-between">
+                    
+                    {/* Visual Representation of Content */}
+                    <div className="space-y-2">
+                      {stats.subjectCount === 0 ? (
+                          <div className="text-center py-6">
+                            <Circle className="w-12 h-12 text-zinc-100 mx-auto mb-2" />
+                            <p className="text-xs text-zinc-400">Sem planejamento</p>
+                          </div>
+                      ) : (
+                          <div className="flex flex-wrap gap-1.5 content-start h-[100px] overflow-hidden mask-gradient-b">
+                            {Array.from({length: Math.min(12, stats.subjectCount)}).map((_, i) => (
+                                <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 opacity-80" />
+                            ))}
+                            {stats.subjectCount > 12 && <div className="w-2 h-2 rounded-full bg-zinc-200 text-[6px] flex items-center justify-center">+</div>}
+                          </div>
+                      )}
+                    </div>
+
+                    {/* Progress Footer */}
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-zinc-500 mb-2">
+                          <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Progresso</span>
+                          <span className={cn(stats.progress > 0 ? "text-indigo-600" : "text-zinc-400")}>{Math.round(stats.progress)}%</span>
+                      </div>
+                      <Progress value={stats.progress} className="h-1.5 bg-zinc-100" />
+                    </div>
+                  </div>
+
+                  {/* Hover Action */}
+                  <div className="absolute top-[80px] right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+                    <div className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-indigo-600">
+                        <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {/* Empty State / Add Action Card */}
+            <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsAddingMonth(true)}
+                className="border-2 border-dashed border-zinc-200 rounded-3xl flex flex-col items-center justify-center h-[280px] text-zinc-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50/10 transition-all gap-4"
             >
-              {/* Card Header */}
-              <div className={cn(
-                "p-5 flex justify-between items-center",
-                isCurrentMonth ? "bg-indigo-50/50" : "bg-zinc-50/30"
-              )}>
-                <div>
-                   <span className={cn(
-                     "font-bold text-lg capitalize block",
-                     isCurrentMonth ? "text-indigo-900" : "text-zinc-700"
-                   )}>{month.name}</span>
-                   <span className="text-xs text-zinc-500 font-medium">{month.year}</span>
-                   {isCurrentMonth && <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Atual</span>}
+                <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center">
+                    <Plus className="w-8 h-8" />
                 </div>
-                
-                <div className="flex items-center gap-2">
-                   <div className="w-10 h-10 rounded-full bg-white border border-zinc-100 flex items-center justify-center text-zinc-400 font-mono text-sm shadow-sm group-hover:scale-110 transition-transform">
-                     {stats.subjectCount}
-                   </div>
-                   <div 
-                    onClick={(e) => { e.stopPropagation(); removeActiveScheduleMonth(month.id); }}
-                    className="w-8 h-8 rounded-full hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-zinc-300 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Remover mês"
-                   >
-                     <Trash2 className="w-4 h-4" />
-                   </div>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="flex-1 p-5 flex flex-col justify-between">
-                
-                {/* Visual Representation of Content */}
-                <div className="space-y-2">
-                   {stats.subjectCount === 0 ? (
-                      <div className="text-center py-6">
-                         <Circle className="w-12 h-12 text-zinc-100 mx-auto mb-2" />
-                         <p className="text-xs text-zinc-400">Sem planejamento</p>
-                      </div>
-                   ) : (
-                      <div className="flex flex-wrap gap-1.5 content-start h-[100px] overflow-hidden mask-gradient-b">
-                         {Array.from({length: Math.min(12, stats.subjectCount)}).map((_, i) => (
-                            <div key={i} className="w-2 h-2 rounded-full bg-indigo-400 opacity-80" />
-                         ))}
-                         {stats.subjectCount > 12 && <div className="w-2 h-2 rounded-full bg-zinc-200 text-[6px] flex items-center justify-center">+</div>}
-                      </div>
-                   )}
-                </div>
-
-                {/* Progress Footer */}
-                <div>
-                   <div className="flex justify-between text-xs font-medium text-zinc-500 mb-2">
-                      <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Progresso</span>
-                      <span className={cn(stats.progress > 0 ? "text-indigo-600" : "text-zinc-400")}>{Math.round(stats.progress)}%</span>
-                   </div>
-                   <Progress value={stats.progress} className="h-1.5 bg-zinc-100" />
-                </div>
-              </div>
-
-              {/* Hover Action */}
-              <div className="absolute top-[80px] right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
-                 <div className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-indigo-600">
-                    <ArrowRight className="w-4 h-4" />
-                 </div>
-              </div>
-            </motion.div>
-          );
-        })}
-
-        {/* Empty State / Add Action Card */}
-        <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setIsAddingMonth(true)}
-            className="border-2 border-dashed border-zinc-200 rounded-3xl flex flex-col items-center justify-center h-[280px] text-zinc-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-indigo-50/10 transition-all gap-4"
-        >
-            <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center">
-                <Plus className="w-8 h-8" />
-            </div>
-            <span className="font-medium">Adicionar Planejamento</span>
-        </motion.button>
-      </div>
+                <span className="font-medium">Adicionar Mês</span>
+            </motion.button>
+          </div>
+        </>
+      )}
 
       {/* Add Month Modal */}
       <AnimatePresence>
