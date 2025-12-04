@@ -1,9 +1,9 @@
 name: Deploy to GitHub Pages
 
 on:
-  # Executa quando houver um push na branch main (ou master)
+  # Executa quando houver um push na branch main, master ou Principal
   push:
-    branches: ["main", "master"]
+    branches: ["main", "master", "Principal"]
 
   # Permite executar manualmente na aba Actions
   workflow_dispatch:
