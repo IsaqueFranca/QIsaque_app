@@ -150,7 +150,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
               onChange={(e) => setFormData({ ...formData, healthDegree: e.target.value as HealthDegree })}
             >
               {degrees.map(d => (
-                <option key={d} value={d}>{degreeLabels[d]}</option>
+                <option key={d} value={d} className="text-zinc-900 bg-white">{degreeLabels[d]}</option>
               ))}
             </select>
             <p className="text-xs text-zinc-500">Isso personaliza o ícone e a ajuda da IA.</p>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Play, Pause, CheckCircle2, Clock, Trash2, X, Send, Bot, Sparkles, MessageSquare, Plus, Calendar } from "lucide-react";
@@ -187,9 +188,9 @@ const StartStudyTab = () => {
                   setSelectedSubjectId("");
                 }}
               >
-                <option value="" disabled className="text-zinc-400">Escolha um período</option>
+                <option value="" disabled className="text-zinc-400 bg-white">Escolha um período</option>
                 {months.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                  <option key={m.id} value={m.id} className="text-zinc-900 bg-white">{m.name}</option>
                 ))}
               </select>
               <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
@@ -208,11 +209,11 @@ const StartStudyTab = () => {
                 onChange={(e) => setSelectedSubjectId(e.target.value)}
                 disabled={!selectedMonthId || availableSubjects.length === 0}
               >
-                <option value="" className="text-zinc-400">
+                <option value="" className="text-zinc-400 bg-white">
                   {availableSubjects.length === 0 ? "—" : "Selecione o tópico"}
                 </option>
                 {availableSubjects.map(s => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
+                  <option key={s.id} value={s.id} className="text-zinc-900 bg-white">{s.title}</option>
                 ))}
               </select>
               <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">

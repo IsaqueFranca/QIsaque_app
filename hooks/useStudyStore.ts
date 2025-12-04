@@ -7,7 +7,7 @@ import { db } from '../lib/firebase';
 
 interface StudyState {
   user: User | null;
-  isGuest: boolean; // Novo estado para controlar modo visitante
+  isGuest: boolean;
   months: Month[];
   subjects: Subject[];
   sessions: Session[];
@@ -15,7 +15,7 @@ interface StudyState {
   
   // User Actions
   setUser: (user: User | null) => void;
-  setGuestMode: (isGuest: boolean) => void; // Ação para ativar/desativar modo visitante
+  setGuestMode: (isGuest: boolean) => void;
   loadFromCloud: (uid: string) => Promise<void>;
   
   // Month Actions
@@ -26,6 +26,7 @@ interface StudyState {
   // Subject Actions
   addSubject: (title: string, monthId: string, tag?: string, weeklyGoal?: number) => string;
   updateSubject: (id: string, updates: Partial<Subject>) => void;
+  scheduleSubject: (subjectId: string, dateStr: string | undefined) => void; // New Action
   deleteSubject: (id: string) => void;
   
   // Subtopic Actions
@@ -57,7 +58,6 @@ interface StudyState {
 // Helper to debounce cloud saves
 let saveTimeout: ReturnType<typeof setTimeout>;
 const saveToCloud = (state: StudyState) => {
-  // Só salva se tiver usuário logado. Modo visitante é ignorado aqui (apenas local).
   if (!state.user?.uid) return;
   
   clearTimeout(saveTimeout);
@@ -75,7 +75,7 @@ const saveToCloud = (state: StudyState) => {
     } catch (e) {
       console.error("Erro ao sincronizar:", e);
     }
-  }, 2000); // Wait 2s of inactivity before saving
+  }, 2000);
 };
 
 export const useStudyStore = create<StudyState>()(
@@ -84,8 +84,7 @@ export const useStudyStore = create<StudyState>()(
       user: null,
       isGuest: false,
       months: [
-        { id: 'default-1', name: 'Janeiro', year: new Date().getFullYear() },
-        { id: 'default-2', name: 'Fevereiro', year: new Date().getFullYear() },
+        { id: 'default-1', name: 'Residência USP', year: new Date().getFullYear() },
       ],
       subjects: [],
       sessions: [],
@@ -99,7 +98,7 @@ export const useStudyStore = create<StudyState>()(
         healthDegree: 'Medicine',
       },
 
-      setUser: (user) => set({ user, isGuest: false }), // Ao logar, desativa modo visitante
+      setUser: (user) => set({ user, isGuest: false }),
       
       setGuestMode: (isGuest) => set({ isGuest }),
 
@@ -110,7 +109,6 @@ export const useStudyStore = create<StudyState>()(
           
           if (docSnap.exists()) {
             const data = docSnap.data();
-            // Merge logic: Cloud data overwrites local if exists, ensuring user gets their data back
             set((state) => ({
               months: data.months || state.months,
               subjects: data.subjects || state.subjects,
@@ -173,6 +171,13 @@ export const useStudyStore = create<StudyState>()(
       updateSubject: (id, updates) => {
         set((state) => ({
           subjects: state.subjects.map(s => s.id === id ? { ...s, ...updates } : s)
+        }));
+        saveToCloud(get());
+      },
+
+      scheduleSubject: (subjectId, dateStr) => {
+        set((state) => ({
+          subjects: state.subjects.map(s => s.id === subjectId ? { ...s, scheduledDate: dateStr } : s)
         }));
         saveToCloud(get());
       },
@@ -327,7 +332,6 @@ export const useStudyStore = create<StudyState>()(
     {
       name: 'study-store',
       partialize: (state) => ({
-        // Persist local data and guest state
         months: state.months,
         subjects: state.subjects,
         sessions: state.sessions,
