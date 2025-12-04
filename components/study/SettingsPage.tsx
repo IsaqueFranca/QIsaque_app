@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Settings, HealthDegree } from "../../types";
 import { Button } from "../ui/button";
@@ -36,7 +35,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           } else {
             setGuestMode(false);
           }
-          onBack();
+          // The App.tsx watcher will handle the redirect, but calling onBack ensures we don't stay on a stale settings screen
+          onBack(); 
       } catch (error) {
           console.error("Logout failed", error);
       }
@@ -44,7 +44,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const handleGoToLogin = () => {
       setGuestMode(false); // Disable guest mode, which triggers the Login Screen in App.tsx
-      onBack();
+      // No need to call onBack, App component will render Login Screen immediately
   };
 
   const degrees: HealthDegree[] = [

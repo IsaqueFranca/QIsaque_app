@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Settings, GraduationCap, Play, BarChart3, Menu, Flame, User, LogOut, UserPlus, 
-  ChevronRight, FolderOpen, LayoutDashboard, FileText, CalendarRange
+  ChevronRight, FolderOpen, CalendarRange
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -41,8 +41,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onGuestLogin 
 }) => {
   return (
-    <div className="flex flex-col h-full bg-white border-r border-zinc-100 w-72 safe-area-left">
-      <div className="p-6 pb-4">
+    <div className="flex flex-col h-[100dvh] bg-white border-r border-zinc-100 w-72 safe-area-left">
+      {/* Header - Fixed Height */}
+      <div className="p-6 pb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg shadow-zinc-900/10">
              <GraduationCap className="w-4 h-4 text-white" />
@@ -55,8 +56,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 space-y-8">
-        {/* Navigation Section */}
+      {/* Navigation - Scrollable Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-8">
         <div className="space-y-1">
              <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
              <button
@@ -102,8 +103,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* User Footer */}
-      <div className="p-4 mt-auto space-y-2 border-t border-zinc-50 bg-zinc-50/50">
+      {/* User Footer - Fixed at Bottom */}
+      <div className="p-4 mt-auto shrink-0 space-y-2 border-t border-zinc-50 bg-zinc-50/50">
          <div className="flex items-center gap-3 mb-2 px-2">
             {user ? (
                 <>
@@ -221,6 +222,7 @@ const App = () => {
     } else {
       setGuestMode(false);
     }
+    setTab("provas"); // Reset tab on logout
   };
 
   const handleGuestLoginClick = () => {
@@ -272,7 +274,7 @@ const App = () => {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              className="fixed inset-y-0 left-0 z-50 bg-background w-72 md:hidden shadow-2xl safe-area-left"
+              className="fixed inset-y-0 left-0 z-50 bg-white w-72 md:hidden shadow-2xl safe-area-left h-[100dvh]"
             >
               <Sidebar 
                 tab={tab}
@@ -289,7 +291,7 @@ const App = () => {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto safe-area-bottom bg-zinc-50/30">
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-y-auto safe-area-bottom bg-zinc-50/30">
         
         {/* Header */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-zinc-50 px-6 py-4 md:px-10 md:py-5 transition-all">

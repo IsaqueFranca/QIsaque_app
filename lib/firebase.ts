@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import * as firebaseApp from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -25,7 +25,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Using 'any' cast on the namespace import to workaround potential type resolution issues
+// where 'initializeApp' is not detected as an exported member.
+const app = (firebaseApp as any).initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // Atenção: O código usa Firestore, NÃO Realtime Database.
 export const db = getFirestore(app);
