@@ -39,6 +39,8 @@ export interface Subject {
   subtopics: Subtopic[];
   studiedDates: string[]; // ISO date strings (YYYY-MM-DD)
   scheduledDate?: string; // New: YYYY-MM for scheduling in the timeline
+  isCompleted?: boolean; // New: Manual completion status
+  notes?: string; // New: User notes
 }
 
 export interface Session {

@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Subject, Session, Settings, Subtopic, Month, User } from '../types';
@@ -12,6 +13,7 @@ interface StudyState {
   subjects: Subject[];
   sessions: Session[];
   settings: Settings;
+  activeScheduleMonths: string[]; // YYYY-MM
   
   // User Actions
   setUser: (user: User | null) => void;
@@ -22,6 +24,10 @@ interface StudyState {
   addMonth: (name: string, year?: number) => void;
   editMonth: (id: string, name: string) => void;
   deleteMonth: (id: string) => void;
+
+  // Schedule Actions
+  addActiveScheduleMonth: (monthStr: string) => void;
+  removeActiveScheduleMonth: (monthStr: string) => void;
 
   // Subject Actions
   addSubject: (title: string, monthId: string, tag?: string, weeklyGoal?: number) => string;
@@ -68,6 +74,7 @@ const saveToCloud = (state: StudyState) => {
         subjects: state.subjects,
         sessions: state.sessions,
         settings: state.settings,
+        activeScheduleMonths: state.activeScheduleMonths,
         lastUpdated: new Date().toISOString()
       };
       await setDoc(doc(db, "users", state.user!.uid), dataToSave, { merge: true });
@@ -97,6 +104,7 @@ export const useStudyStore = create<StudyState>()(
         finalGoal: 'Aprovação na Residência',
         healthDegree: 'Medicine',
       },
+      activeScheduleMonths: [formatDate(new Date()).slice(0, 7)], // Initialize with current month YYYY-MM
 
       setUser: (user) => set({ user, isGuest: false }),
       
@@ -113,7 +121,8 @@ export const useStudyStore = create<StudyState>()(
               months: data.months || state.months,
               subjects: data.subjects || state.subjects,
               sessions: data.sessions || state.sessions,
-              settings: data.settings || state.settings
+              settings: data.settings || state.settings,
+              activeScheduleMonths: data.activeScheduleMonths || state.activeScheduleMonths
             }));
             console.log("Dados carregados da nuvem.");
           }
@@ -145,6 +154,23 @@ export const useStudyStore = create<StudyState>()(
         set((state) => ({
           months: state.months.filter(m => m.id !== id),
           subjects: state.subjects.filter(s => s.monthId !== id)
+        }));
+        saveToCloud(get());
+      },
+
+      // Schedule Actions
+      addActiveScheduleMonth: (monthStr) => {
+        set((state) => {
+           if (state.activeScheduleMonths.includes(monthStr)) return state;
+           const newMonths = [...state.activeScheduleMonths, monthStr].sort();
+           return { activeScheduleMonths: newMonths };
+        });
+        saveToCloud(get());
+      },
+
+      removeActiveScheduleMonth: (monthStr) => {
+        set((state) => ({
+           activeScheduleMonths: state.activeScheduleMonths.filter(m => m !== monthStr)
         }));
         saveToCloud(get());
       },
@@ -337,7 +363,8 @@ export const useStudyStore = create<StudyState>()(
         sessions: state.sessions,
         settings: state.settings,
         user: state.user,
-        isGuest: state.isGuest
+        isGuest: state.isGuest,
+        activeScheduleMonths: state.activeScheduleMonths
       })
     }
   )
