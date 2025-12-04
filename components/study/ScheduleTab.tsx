@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { format } from "date-fns";
-import ptBR from "date-fns/locale/pt-BR";
+import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Plus, X, ArrowRight, Check, BookOpen } from "lucide-react";
 import { Button } from "../ui/button";

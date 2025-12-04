@@ -1,4 +1,5 @@
-const CACHE_NAME = 'qisaque-v1';
+
+const CACHE_NAME = 'qisaque-v2';
 // Use caminhos relativos (./) para suportar subdiretórios
 const ASSETS_TO_CACHE = [
   './',

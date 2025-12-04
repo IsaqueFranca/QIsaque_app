@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from "react";
 import { format, getDay } from "date-fns";
-import ptBR from "date-fns/locale/pt-BR";
+import { ptBR } from "date-fns/locale";
 import { generateYearDays, getIntensityLevel, formatDate, cn } from "../../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Clock, Calendar } from "lucide-react";
