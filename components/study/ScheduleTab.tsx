@@ -1,13 +1,14 @@
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare, Maximize2, Copy } from "lucide-react";
+import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays, List, LayoutGrid, CheckSquare, Maximize2, Copy, Wand2, RefreshCw, Save, Settings2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
 import { cn, formatDate } from "../../lib/utils";
 import { Session, Subject, Subtopic, SubjectSchedule } from "../../types";
+import { getDay, getDaysInMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -22,6 +23,368 @@ const getPlannedDurationSeconds = (subject: Subject, monthId: string): number =>
   // Return average seconds per planned day
   return Math.floor((sched.monthlyGoal * 3600) / sched.plannedDays.length);
 };
+
+// --- Auto Distribution Modal ---
+
+interface AutoDistributeModalProps {
+  monthId: string;
+  subjects: Subject[];
+  onClose: () => void;
+  onSave: (distribution: Record<string, string[]>) => void;
+}
+
+const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subjects, onClose, onSave }) => {
+  const [step, setStep] = useState<'config' | 'preview'>('config');
+  
+  // Config State
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri
+  const [subjectsPerDay, setSubjectsPerDay] = useState(3);
+  
+  // Preview State
+  const [distribution, setDistribution] = useState<Record<string, string[]>>({}); // DateStr -> SubjectIDs[]
+
+  // Month Data
+  const monthDates = useMemo(() => {
+    const [year, month] = monthId.split('-').map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
+    return eachDayOfInterval({ start, end });
+  }, [monthId]);
+
+  const availableDates = useMemo(() => {
+    return monthDates.filter(d => selectedWeekdays.includes(getDay(d)));
+  }, [monthDates, selectedWeekdays]);
+
+  const totalGoalHours = useMemo(() => {
+    return subjects.reduce((acc, s) => acc + (s.schedules?.[monthId]?.monthlyGoal || 0), 0);
+  }, [subjects, monthId]);
+
+  // Generation Logic
+  const handleGenerate = () => {
+    const newDist: Record<string, string[]> = {};
+    const validSubjects = subjects.filter(s => (s.schedules?.[monthId]?.monthlyGoal || 0) > 0);
+    
+    if (availableDates.length === 0 || validSubjects.length === 0) {
+      setDistribution({});
+      setStep('preview');
+      return;
+    }
+
+    // Initialize map
+    monthDates.forEach(d => {
+      newDist[formatDate(d)] = [];
+    });
+
+    // Calculate slots
+    const totalSlots = availableDates.length * subjectsPerDay;
+    
+    // Assign slots per subject proportional to goal
+    const subjectSlots = validSubjects.map(s => {
+       const goal = s.schedules?.[monthId]?.monthlyGoal || 0;
+       const share = goal / totalGoalHours;
+       const slots = Math.round(share * totalSlots);
+       return { id: s.id, slots, goal };
+    });
+
+    // Sort by most slots to distribute them first (better spacing)
+    subjectSlots.sort((a, b) => b.slots - a.slots);
+
+    // Distribution Algorithm (Round Robin with Stride)
+    subjectSlots.forEach((sub, index) => {
+      if (sub.slots <= 0) return;
+      
+      // Calculate ideal stride to space out this subject
+      // e.g., if needed on 5 days out of 20, stride is 4.
+      const stride = Math.max(1, availableDates.length / sub.slots);
+      
+      // Offset start based on subject index to prevent stacking all on Day 1
+      let currentPos = index % availableDates.length;
+      
+      let assignedCount = 0;
+      let attempts = 0; // Breaker
+
+      while (assignedCount < sub.slots && attempts < availableDates.length * 2) {
+         const dateIdx = Math.floor(currentPos) % availableDates.length;
+         const dateStr = formatDate(availableDates[dateIdx]);
+
+         // Try to assign if space permits
+         if (newDist[dateStr].length < subjectsPerDay) {
+            if (!newDist[dateStr].includes(sub.id)) {
+                newDist[dateStr].push(sub.id);
+                assignedCount++;
+            }
+         }
+         
+         currentPos += stride;
+         attempts++;
+      }
+    });
+
+    setDistribution(newDist);
+    setStep('preview');
+  };
+
+  const toggleAssignment = (dateStr: string, subjectId: string) => {
+    setDistribution(prev => {
+      const current = prev[dateStr] || [];
+      const exists = current.includes(subjectId);
+      const updated = exists 
+        ? current.filter(id => id !== subjectId)
+        : [...current, subjectId];
+      return { ...prev, [dateStr]: updated };
+    });
+  };
+
+  const handleConfirm = () => {
+    // Invert the map: Date->Subjects to Subject->Dates
+    const subjectUpdates: Record<string, string[]> = {};
+    
+    subjects.forEach(s => subjectUpdates[s.id] = []);
+
+    Object.entries(distribution).forEach(([dateStr, subIds]) => {
+      subIds.forEach(subId => {
+        if (!subjectUpdates[subId]) subjectUpdates[subId] = [];
+        subjectUpdates[subId].push(dateStr);
+      });
+    });
+
+    onSave(subjectUpdates);
+    onClose();
+  };
+
+  const getEstimatedDailyHours = (dateStr: string) => {
+     const subIds = distribution[dateStr] || [];
+     if (subIds.length === 0) return 0;
+     
+     let total = 0;
+     subIds.forEach(id => {
+        // Find subject
+        const sub = subjects.find(s => s.id === id);
+        // Find how many days this subject is assigned to in TOTAL in the PREVIEW
+        let assignedDaysCount = 0;
+        Object.values(distribution).forEach(dayList => {
+           if (dayList.includes(id)) assignedDaysCount++;
+        });
+        
+        const goal = sub?.schedules?.[monthId]?.monthlyGoal || 0;
+        const duration = assignedDaysCount > 0 ? goal / assignedDaysCount : 0;
+        total += duration;
+     });
+     return total;
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ scale: 0.95, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10 }}
+        className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl border border-zinc-100 flex flex-col max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-white z-10">
+           <div>
+              <h3 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                 <Wand2 className="w-5 h-5 text-indigo-500" />
+                 Distribuição Inteligente
+              </h3>
+              <p className="text-sm text-zinc-500">
+                {step === 'config' ? 'Configure como deseja distribuir suas horas.' : 'Revise e ajuste a distribuição gerada.'}
+              </p>
+           </div>
+           <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-6">
+           {step === 'config' ? (
+              <div className="max-w-lg mx-auto space-y-8">
+                 <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+                    <h4 className="font-bold text-zinc-900 flex items-center gap-2">
+                       <CalendarDays className="w-4 h-4 text-zinc-400" /> Dias de Estudo
+                    </h4>
+                    <div className="grid grid-cols-7 gap-2">
+                       {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => {
+                          const isSelected = selectedWeekdays.includes(i);
+                          return (
+                             <button
+                                key={i}
+                                onClick={() => setSelectedWeekdays(prev => 
+                                   prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]
+                                )}
+                                className={cn(
+                                   "aspect-square rounded-xl text-sm font-bold flex items-center justify-center transition-all",
+                                   isSelected ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200"
+                                )}
+                             >
+                                {d}
+                             </button>
+                          );
+                       })}
+                    </div>
+                    <p className="text-xs text-zinc-400">Selecione os dias da semana disponíveis.</p>
+                 </div>
+
+                 <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+                    <h4 className="font-bold text-zinc-900 flex items-center gap-2">
+                       <LayoutGrid className="w-4 h-4 text-zinc-400" /> Intensidade
+                    </h4>
+                    <div className="space-y-2">
+                       <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500">Matérias por dia</span>
+                          <span className="font-bold text-indigo-600">{subjectsPerDay}</span>
+                       </div>
+                       <input 
+                          type="range" 
+                          min="1" 
+                          max="8" 
+                          step="1"
+                          value={subjectsPerDay}
+                          onChange={(e) => setSubjectsPerDay(parseInt(e.target.value))}
+                          className="w-full accent-indigo-600 h-2 bg-zinc-100 rounded-lg appearance-none cursor-pointer"
+                       />
+                       <div className="flex justify-between text-[10px] text-zinc-400 font-medium">
+                          <span>Foco Único</span>
+                          <span>Diversificado</span>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <div className="text-sm text-indigo-900">
+                       <span className="block font-bold">Resumo do Mês</span>
+                       <span className="opacity-80">{totalGoalHours}h Totais • {availableDates.length} Dias Úteis</span>
+                    </div>
+                    <div className="text-right">
+                       <span className="block text-2xl font-bold text-indigo-600">
+                          ~{(totalGoalHours / availableDates.length).toFixed(1)}h
+                       </span>
+                       <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Por Dia</span>
+                    </div>
+                 </div>
+              </div>
+           ) : (
+              <div className="space-y-6">
+                 <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                    {/* Weekday Headers */}
+                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d,i) => (
+                       <div key={i} className="hidden md:block text-center text-xs font-bold text-zinc-400 uppercase mb-2">{d}</div>
+                    ))}
+
+                    {/* Empty cells for start padding */}
+                    {Array.from({ length: getDay(monthDates[0]) }).map((_, i) => (
+                       <div key={`pad-${i}`} className="hidden md:block" />
+                    ))}
+
+                    {monthDates.map(date => {
+                       const dateStr = formatDate(date);
+                       const assignedIds = distribution[dateStr] || [];
+                       const dailyHours = getEstimatedDailyHours(dateStr);
+                       const isSelected = selectedWeekdays.includes(getDay(date));
+                       
+                       return (
+                          <div 
+                             key={dateStr}
+                             className={cn(
+                                "min-h-[100px] bg-white rounded-xl border p-2 flex flex-col gap-1 transition-all",
+                                isSelected ? "border-zinc-200" : "border-zinc-100 bg-zinc-50/50 opacity-60"
+                             )}
+                          >
+                             <div className="flex justify-between items-start mb-1">
+                                <span className={cn("text-sm font-bold", isSelected ? "text-zinc-700" : "text-zinc-400")}>
+                                   {date.getDate()}
+                                </span>
+                                {assignedIds.length > 0 && (
+                                   <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                                      ~{dailyHours.toFixed(1)}h
+                                   </span>
+                                )}
+                             </div>
+
+                             <div className="flex-1 flex flex-col gap-1">
+                                {assignedIds.map(subId => {
+                                   const sub = subjects.find(s => s.id === subId);
+                                   if (!sub) return null;
+                                   return (
+                                      <div 
+                                         key={subId} 
+                                         onClick={() => toggleAssignment(dateStr, subId)}
+                                         className="text-[10px] bg-zinc-100 px-2 py-1 rounded-md text-zinc-700 truncate cursor-pointer hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-between group"
+                                      >
+                                         <span className="truncate">{sub.title}</span>
+                                         <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" />
+                                      </div>
+                                   );
+                                })}
+                                {/* Add Button */}
+                                {isSelected && (
+                                   <div className="relative group">
+                                      <button className="w-full text-[10px] text-zinc-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-md py-1 border border-dashed border-zinc-200 hover:border-indigo-200 flex items-center justify-center gap-1 transition-all">
+                                         <Plus className="w-2.5 h-2.5" /> Add
+                                      </button>
+                                      {/* Simple Dropdown for adding (Hidden by default, shown on hover/focus could be tricky in grid, simplified to click rotation or just show standard UI) */}
+                                      {/* For simplicity in this demo, let's make the Add button cycle through unassigned subjects or open a small dialog. 
+                                          Given complexity constraints, let's just make it cycle through missing subjects? No, too unpredictable.
+                                          Let's use a native select overlaid? Or just a simple click handler that adds the first available subject.
+                                          Better: Click opens a small absolute list.
+                                      */}
+                                      <select 
+                                         className="absolute inset-0 opacity-0 cursor-pointer"
+                                         value=""
+                                         onChange={(e) => {
+                                            if(e.target.value) toggleAssignment(dateStr, e.target.value);
+                                         }}
+                                      >
+                                         <option value="">Adicionar...</option>
+                                         {subjects.filter(s => !assignedIds.includes(s.id)).map(s => (
+                                            <option key={s.id} value={s.id}>{s.title}</option>
+                                         ))}
+                                      </select>
+                                   </div>
+                                )}
+                             </div>
+                          </div>
+                       );
+                    })}
+                 </div>
+              </div>
+           )}
+        </div>
+
+        <div className="p-6 border-t border-zinc-100 bg-white flex justify-between z-10">
+           {step === 'config' ? (
+              <>
+                 <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                 <Button onClick={handleGenerate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8">
+                    Gerar Cronograma <ArrowRight className="w-4 h-4 ml-2" />
+                 </Button>
+              </>
+           ) : (
+              <>
+                 <Button variant="ghost" onClick={() => setStep('config')}>
+                    <Settings2 className="w-4 h-4 mr-2" /> Reconfigurar
+                 </Button>
+                 <div className="flex gap-3">
+                    <Button variant="outline" onClick={handleGenerate}>
+                       <RefreshCw className="w-4 h-4 mr-2" /> Regenerar
+                    </Button>
+                    <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700 text-white px-8">
+                       <Save className="w-4 h-4 mr-2" /> Salvar Alterações
+                    </Button>
+                 </div>
+              </>
+           )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 
 // --- Components ---
 
@@ -527,6 +890,10 @@ const ScheduleTab = () => {
   const [monthToDuplicate, setMonthToDuplicate] = useState<string | null>(null);
   const [targetDuplicateMonth, setTargetDuplicateMonth] = useState<string>(formatDate(new Date()).slice(0, 7));
 
+  // Auto Distribute State
+  const [isAutoDistributing, setIsAutoDistributing] = useState(false);
+  const [distributeMonthId, setDistributeMonthId] = useState<string | null>(null);
+
   const calendarMonths = useMemo(() => {
     return activeScheduleMonths.map(monthStr => {
       const [year, month] = monthStr.split('-').map(Number);
@@ -627,6 +994,16 @@ const ScheduleTab = () => {
          status: 'completed'
       });
     }
+  };
+  
+  // Handle save from Auto Distribute
+  const handleAutoDistributeSave = (distribution: Record<string, string[]>) => {
+    if (!distributeMonthId) return;
+    
+    // distribution is SubjectID -> DateStr[]
+    Object.entries(distribution).forEach(([subjectId, dates]) => {
+      updateSubjectSchedule(subjectId, distributeMonthId, { plannedDays: dates });
+    });
   };
 
   const viewingMonthData = viewingMonthId ? calendarMonths.find(m => m.id === viewingMonthId) : null;
@@ -903,6 +1280,18 @@ const ScheduleTab = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Auto Distribute Modal */}
+      <AnimatePresence>
+        {isAutoDistributing && distributeMonthId && (
+          <AutoDistributeModal
+            monthId={distributeMonthId}
+            subjects={subjects.filter(s => !!s.schedules && !!s.schedules[distributeMonthId])}
+            onClose={() => { setIsAutoDistributing(false); setDistributeMonthId(null); }}
+            onSave={handleAutoDistributeSave}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Month Detail Modal */}
       <AnimatePresence>
@@ -950,6 +1339,13 @@ const ScheduleTab = () => {
                  </div>
                  
                  <div className="flex gap-2 shrink-0">
+                     <Button 
+                      onClick={() => { setDistributeMonthId(viewingMonthId); }}
+                      className="rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 hidden sm:flex"
+                    >
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Distribuição Automática
+                    </Button>
                     <Button 
                       variant="outline" 
                       onClick={() => { setManagingMonthId(viewingMonthId); setViewingMonthId(null); }}
