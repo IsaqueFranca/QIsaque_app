@@ -2,11 +2,15 @@
 import React, { useState } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Plus, X, ArrowRight, Check, BookOpen } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
 
 const ScheduleTab = () => {
   const { months, subjects, scheduleSubject } = useStudyStore();
@@ -14,9 +18,10 @@ const ScheduleTab = () => {
   
   const currentYear = new Date().getFullYear();
   const calendarMonths = Array.from({ length: 12 }, (_, i) => {
+    // Creating date correctly
     const date = new Date(currentYear, i, 1);
     return {
-      name: format(date, "MMMM", { locale: ptBR }),
+      name: MONTH_NAMES[i],
       id: format(date, "yyyy-MM"),
       date: date
     };
@@ -24,12 +29,6 @@ const ScheduleTab = () => {
 
   const getSubjectsForScheduleMonth = (dateStr: string) => {
     return subjects.filter(s => s.scheduledDate === dateStr);
-  };
-
-  const getUnscheduledSubjects = () => {
-      // Filter out subjects that are already scheduled
-      // OR allow moving them. For now, list all to allow moving.
-      return subjects;
   };
 
   const handleToggleSchedule = (subjectId: string, targetMonthId: string) => {
@@ -166,7 +165,7 @@ const ScheduleTab = () => {
                                                 isSelected 
                                                     ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200" 
                                                     : isScheduledElsewhere
-                                                        ? "bg-zinc-100 border-zinc-200 text-zinc-500" // Removida opacidade, adicionada cor sólida
+                                                        ? "bg-zinc-100 border-zinc-200 text-zinc-500"
                                                         : "bg-white border-zinc-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-zinc-800"
                                             )}
                                         >
