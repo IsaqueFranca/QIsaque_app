@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Settings, GraduationCap, Play, BarChart3, Menu, Flame, User, LogOut, UserPlus, 
-  ChevronRight, FolderOpen, CalendarRange
+  ChevronRight, FolderOpen, CalendarRange, Home
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -14,12 +14,13 @@ import SettingsPage from "./components/study/SettingsPage";
 import StartStudyTab from "./components/study/StartStudyTab";
 import StatisticsTab from "./components/study/StatisticsTab";
 import ScheduleTab from "./components/study/ScheduleTab";
+import TodayTab from "./components/study/TodayTab";
 import LoginPage from "./components/auth/LoginPage";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import { User as UserType } from "./types";
 
-type Tab = "provas" | "planning" | "schedule" | "study" | "statistics" | "settings";
+type Tab = "today" | "provas" | "planning" | "schedule" | "study" | "statistics" | "settings";
 
 interface SidebarProps {
   tab: Tab;
@@ -61,6 +62,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-8">
         <div className="space-y-1">
              <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
+             <button
+                onClick={() => { setTab("today"); setIsMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
+                  tab === "today" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                )}
+              >
+                <Home className={cn("w-4 h-4", tab === "today" && "text-zinc-900")} />
+                Início
+              </button>
              <button
                 onClick={() => { setTab("provas"); setIsMobileMenuOpen(false); }}
                 className={cn(
@@ -161,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 const App = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("provas");
+  const [tab, setTab] = useState<Tab>("today");
   const [selectedMonthId, setSelectedMonthId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -178,6 +189,7 @@ const App = () => {
     isGuest,
     setGuestMode,
     loadFromCloud,
+    setActiveSubjectId
   } = useStudyStore();
 
   const streakStats = getStreakStats();
@@ -211,7 +223,7 @@ const App = () => {
   };
 
   const handleSettingsClick = () => {
-    setTab(tab === "settings" ? "provas" : "settings");
+    setTab(tab === "settings" ? "today" : "settings");
     if (window.innerWidth < 768) {
       setIsMobileMenuOpen(false);
     }
@@ -223,11 +235,16 @@ const App = () => {
     } else {
       setGuestMode(false);
     }
-    setTab("provas"); // Reset tab on logout
+    setTab("today"); // Reset tab on logout
   };
 
   const handleGuestLoginClick = () => {
       setGuestMode(false); 
+  };
+  
+  const handleStartStudy = (subjectId: string) => {
+      setActiveSubjectId(subjectId);
+      setTab("study");
   };
 
   // 1. Loading Screen (Minimal / Instant)
@@ -310,7 +327,8 @@ const App = () => {
                   <span>QIsaque</span>
                   <ChevronRight className="w-4 h-4" />
                   <span className="text-zinc-900 capitalize">
-                      {tab === "planning" ? "Planejamento" : 
+                      {tab === "today" ? "Visão Geral" : 
+                       tab === "planning" ? "Planejamento" : 
                        tab === "provas" ? "Minhas Provas" : 
                        tab === "schedule" ? "Cronograma" :
                        tab === "study" ? "Área de Foco" : 
@@ -346,6 +364,10 @@ const App = () => {
                transition={{ duration: 0.2 }}
                className="h-full"
              >
+               {tab === "today" && (
+                 <TodayTab onStartStudy={handleStartStudy} />
+               )}
+
                {tab === "provas" && (
                  <MonthGrid 
                    months={months} 
@@ -379,7 +401,7 @@ const App = () => {
                  <SettingsPage 
                     settings={settings}
                     onUpdateSettings={updateSettings}
-                    onBack={() => setTab("provas")}
+                    onBack={() => setTab("today")}
                  />
                )}
              </motion.div>

@@ -17,7 +17,9 @@ const StartStudyTab = () => {
     deleteSession,
     updateSessionStatus,
     subjects,
-    getSubjectsByMonthId
+    getSubjectsByMonthId,
+    activeSubjectId,
+    setActiveSubjectId
   } = useStudyStore();
 
   const [selectedMonthId, setSelectedMonthId] = useState<string>("");
@@ -44,11 +46,19 @@ const StartStudyTab = () => {
   const [manualHours, setManualHours] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
 
+  // Auto-select subject from Today tab
   useEffect(() => {
-    if (months.length > 0 && !selectedMonthId) {
+    if (activeSubjectId) {
+      const subject = subjects.find(s => s.id === activeSubjectId);
+      if (subject) {
+        setSelectedMonthId(subject.monthId);
+        setSelectedSubjectId(subject.id);
+      }
+      setActiveSubjectId(null); // Consume the action
+    } else if (months.length > 0 && !selectedMonthId) {
       setSelectedMonthId(months[0].id);
     }
-  }, [months]);
+  }, [activeSubjectId, months]);
 
   useEffect(() => {
     if (isRunning) {

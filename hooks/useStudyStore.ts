@@ -14,6 +14,7 @@ interface StudyState {
   sessions: Session[];
   settings: Settings;
   activeScheduleMonths: string[]; // YYYY-MM
+  activeSubjectId: string | null; // For cross-tab navigation
   
   // User Actions
   setUser: (user: User | null) => void;
@@ -49,6 +50,7 @@ interface StudyState {
   // Study Logic
   toggleStudyDay: (subjectId: string, date: string) => void;
   isStudiedToday: (subjectId: string) => boolean;
+  setActiveSubjectId: (id: string | null) => void;
 
   // Session Actions
   addSession: (session: Omit<Session, 'id'>) => void;
@@ -110,6 +112,7 @@ export const useStudyStore = create<StudyState>()(
         healthDegree: 'Medicine',
       },
       activeScheduleMonths: [formatDate(new Date()).slice(0, 7)], // Initialize with current month YYYY-MM
+      activeSubjectId: null,
 
       setUser: (user) => set({ user, isGuest: false }),
       
@@ -364,6 +367,8 @@ export const useStudyStore = create<StudyState>()(
         const today = formatDate(new Date());
         return get().subjects.find(s => s.id === subjectId)?.studiedDates.includes(today) || false;
       },
+      
+      setActiveSubjectId: (id) => set({ activeSubjectId: id }),
 
       // Session Actions
       addSession: (sessionData) => {
