@@ -1,6 +1,6 @@
+
 import React, { useState, useMemo } from "react";
 import { format, getDay } from "date-fns";
-import ptBR from "date-fns/locale/pt-BR";
 import { generateYearDays, getIntensityLevel, formatDate, cn } from "../../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Clock, Calendar } from "lucide-react";
@@ -22,17 +22,26 @@ const StudyHeatmap: React.FC<StudyHeatmapProps> = ({ dayMap }) => {
     return [...Array(startDay).fill(null), ...days];
   }, [days, startDay]);
 
-  // Rolling 12 months labels
+  // Rolling 12 months labels using native Intl for safety
   const monthLabels = useMemo(() => {
     const today = new Date();
     const labels = [];
+    const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+    
     for(let i=11; i>=0; i--) {
-       // Create date at 1st of month to avoid overflow (e.g. 31st Mar - 1 month = 28th/29th Feb vs 3rd Mar)
        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-       labels.push(format(date, 'MMM', { locale: ptBR }));
+       labels.push(formatter.format(date));
     }
     return labels;
   }, []);
+
+  const formatDateLabel = (date: Date) => {
+    return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long' }).format(date);
+  };
+  
+  const formatWeekday = (date: Date) => {
+    return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(date);
+  };
 
   const getColorClass = (level: number) => {
     switch (level) {
@@ -124,12 +133,12 @@ const StudyHeatmap: React.FC<StudyHeatmapProps> = ({ dayMap }) => {
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                   <h3 className="font-semibold text-lg flex items-center gap-2 text-zinc-900">
+                   <h3 className="font-semibold text-lg flex items-center gap-2 text-zinc-900 capitalize">
                      <Calendar className="w-4 h-4 text-sky-500" />
-                     {format(selectedDay.date, "dd 'de' MMMM", { locale: ptBR })}
+                     {formatDateLabel(selectedDay.date)}
                    </h3>
                    <span className="text-xs text-zinc-500 capitalize">
-                     {format(selectedDay.date, "EEEE", { locale: ptBR })}
+                     {formatWeekday(selectedDay.date)}
                    </span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-zinc-100" onClick={() => setSelectedDay(null)}>
