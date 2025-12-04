@@ -16,12 +16,12 @@ const firebaseConfig = {
   // Se estiver rodando localmente, você pode colar as chaves diretamente aqui.
   // Se for fazer deploy (GitHub Pages/Vercel), use variáveis de ambiente (.env).
   
-  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyD7zI-wYCzo8vjvmXYBvpHjiFOhEdf_bGE",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "qisaque-ea6cb.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "qisaque-ea6cb",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "qisaque-ea6cb.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "844065251736",
-  appId: process.env.FIREBASE_APP_ID || "1:844065251736:web:8da15ecc0a096767558bed"
+  apiKey: process.env.FIREBASE_API_KEY || "COLE_SUA_API_KEY_AQUI",
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "seu-projeto.firebaseapp.com",
+  projectId: process.env.FIREBASE_PROJECT_ID || "seu-projeto",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "seu-projeto.appspot.com",
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "123456789",
+  appId: process.env.FIREBASE_APP_ID || "1:123456789:web:abcdef"
 };
 
 // Initialize Firebase

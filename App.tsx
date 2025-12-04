@@ -45,7 +45,7 @@ const App = () => {
 
   // Authentication & Sync Logic
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser({
           uid: currentUser.uid,
@@ -53,8 +53,8 @@ const App = () => {
           displayName: currentUser.displayName,
           photoURL: currentUser.photoURL
         });
-        // Auto-sync data when user is detected
-        await loadFromCloud(currentUser.uid);
+        // Load data in background without blocking UI
+        loadFromCloud(currentUser.uid);
       } else {
         setUser(null);
       }
@@ -90,16 +90,11 @@ const App = () => {
       setGuestMode(false); 
   };
 
-  // 1. Loading Screen
+  // 1. Loading Screen (Minimal / Instant)
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center animate-pulse">
-             <GraduationCap className="w-8 h-8 text-white" />
-          </div>
-          <p className="text-zinc-500 font-medium">Sincronizando dados...</p>
-        </div>
+        <div className="w-10 h-10 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin"></div>
       </div>
     );
   }
