@@ -1,8 +1,9 @@
+
 import React, { useState } from "react";
 import { Settings, HealthDegree } from "../../types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { ArrowLeft, Save, LogOut, User } from "lucide-react";
+import { ArrowLeft, Save, LogOut, User, UserPlus } from "lucide-react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { auth } from "../../lib/firebase";
 import { signOut } from "firebase/auth";
@@ -20,6 +21,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 }) => {
   const [formData, setFormData] = useState(settings);
   const user = useStudyStore(state => state.user);
+  const setGuestMode = useStudyStore(state => state.setGuestMode);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +31,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const handleLogout = async () => {
       try {
-          await signOut(auth);
+          if (user) {
+            await signOut(auth);
+          } else {
+            setGuestMode(false);
+          }
           onBack();
       } catch (error) {
           console.error("Logout failed", error);
       }
+  };
+
+  const handleGoToLogin = () => {
+      setGuestMode(false); // Disable guest mode, which triggers the Login Screen in App.tsx
+      onBack();
   };
 
   const degrees: HealthDegree[] = [
@@ -101,9 +112,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                      </Button>
                  </div>
              ) : (
-                 <div className="text-center py-4 text-zinc-500 text-sm">
-                     <p>Você está usando uma conta de visitante local.</p>
-                     <p>Faça login para salvar seus dados na nuvem.</p>
+                 <div className="text-center py-4 text-zinc-500 text-sm space-y-3">
+                     <div className="bg-orange-50 text-orange-700 p-4 rounded-xl text-left text-xs mb-4">
+                        <p className="font-bold mb-1">Modo Visitante Ativo</p>
+                        Seus dados estão salvos apenas neste dispositivo. Para não perder seu progresso se trocar de celular ou limpar o cache, faça login.
+                     </div>
+                     
+                     <Button type="button" className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleGoToLogin}>
+                         <UserPlus className="w-4 h-4 mr-2" />
+                         Fazer Login / Criar Conta
+                     </Button>
+                     
+                     <Button type="button" variant="ghost" onClick={handleLogout} className="w-full text-red-400 hover:text-red-500 hover:bg-red-50">
+                         Sair do Modo Visitante
+                     </Button>
                  </div>
              )}
         </div>

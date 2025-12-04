@@ -7,6 +7,7 @@ import { db } from '../lib/firebase';
 
 interface StudyState {
   user: User | null;
+  isGuest: boolean; // Novo estado para controlar modo visitante
   months: Month[];
   subjects: Subject[];
   sessions: Session[];
@@ -14,6 +15,7 @@ interface StudyState {
   
   // User Actions
   setUser: (user: User | null) => void;
+  setGuestMode: (isGuest: boolean) => void; // Ação para ativar/desativar modo visitante
   loadFromCloud: (uid: string) => Promise<void>;
   
   // Month Actions
@@ -55,6 +57,7 @@ interface StudyState {
 // Helper to debounce cloud saves
 let saveTimeout: ReturnType<typeof setTimeout>;
 const saveToCloud = (state: StudyState) => {
+  // Só salva se tiver usuário logado. Modo visitante é ignorado aqui (apenas local).
   if (!state.user?.uid) return;
   
   clearTimeout(saveTimeout);
@@ -79,6 +82,7 @@ export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
       user: null,
+      isGuest: false,
       months: [
         { id: 'default-1', name: 'Janeiro', year: new Date().getFullYear() },
         { id: 'default-2', name: 'Fevereiro', year: new Date().getFullYear() },
@@ -95,7 +99,9 @@ export const useStudyStore = create<StudyState>()(
         healthDegree: 'Medicine',
       },
 
-      setUser: (user) => set({ user }),
+      setUser: (user) => set({ user, isGuest: false }), // Ao logar, desativa modo visitante
+      
+      setGuestMode: (isGuest) => set({ isGuest }),
 
       loadFromCloud: async (uid) => {
         try {
@@ -321,14 +327,13 @@ export const useStudyStore = create<StudyState>()(
     {
       name: 'study-store',
       partialize: (state) => ({
-        // Don't persist user object fully if secure auth handles it, 
-        // but keeping it simple for now. 
-        // Important: Always persist data so offline works.
+        // Persist local data and guest state
         months: state.months,
         subjects: state.subjects,
         sessions: state.sessions,
         settings: state.settings,
-        user: state.user
+        user: state.user,
+        isGuest: state.isGuest
       })
     }
   )
