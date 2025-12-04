@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Subject, Session, Settings, Subtopic, Month, User } from '../types';
+import { Subject, Session, Settings, Subtopic, Month, User, SubjectSchedule } from '../types';
 import { generateId, formatDate, calculateStreaks } from '../lib/utils';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -30,9 +30,14 @@ interface StudyState {
   removeActiveScheduleMonth: (monthStr: string) => void;
 
   // Subject Actions
-  addSubject: (title: string, monthId: string, tag?: string, weeklyGoal?: number) => string;
+  addSubject: (title: string, monthId: string, tag?: string) => string;
   updateSubject: (id: string, updates: Partial<Subject>) => void;
-  scheduleSubject: (subjectId: string, dateStr: string | undefined) => void; // New Action
+  
+  // Multi-Month Scheduling Actions
+  toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
+  updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
+  toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
+  
   deleteSubject: (id: string) => void;
   
   // Subtopic Actions
@@ -176,7 +181,7 @@ export const useStudyStore = create<StudyState>()(
       },
 
       // Subject Actions
-      addSubject: (title, monthId, tag, weeklyGoal) => {
+      addSubject: (title, monthId, tag) => {
         const newId = generateId();
         set((state) => ({
           subjects: [...state.subjects, {
@@ -184,10 +189,10 @@ export const useStudyStore = create<StudyState>()(
             title,
             monthId,
             tag,
-            weeklyGoal,
             color: 'bg-blue-500',
             subtopics: [],
-            studiedDates: []
+            studiedDates: [],
+            schedules: {} // Initialize empty schedule map
           }]
         }));
         saveToCloud(get());
@@ -201,9 +206,77 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      scheduleSubject: (subjectId, dateStr) => {
+      toggleSubjectInMonth: (subjectId, monthStr) => {
         set((state) => ({
-          subjects: state.subjects.map(s => s.id === subjectId ? { ...s, scheduledDate: dateStr } : s)
+          subjects: state.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            const newSchedules = { ...s.schedules };
+            
+            if (newSchedules[monthStr]) {
+              // If exists, remove it (toggle off)
+              delete newSchedules[monthStr];
+            } else {
+              // If not exists, add it (toggle on)
+              newSchedules[monthStr] = {
+                monthlyGoal: 0,
+                plannedDays: [],
+                isCompleted: false,
+                notes: ''
+              };
+            }
+            return { ...s, schedules: newSchedules };
+          })
+        }));
+        saveToCloud(get());
+      },
+
+      updateSubjectSchedule: (subjectId, monthStr, updates) => {
+        set((state) => ({
+          subjects: state.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            const currentSchedule = s.schedules?.[monthStr];
+            if (!currentSchedule) return s;
+
+            return {
+              ...s,
+              schedules: {
+                ...s.schedules,
+                [monthStr]: {
+                  ...currentSchedule,
+                  ...updates
+                }
+              }
+            };
+          })
+        }));
+        saveToCloud(get());
+      },
+
+      toggleSubjectPlannedDay: (subjectId, monthStr, dateStr) => {
+        set((state) => ({
+          subjects: state.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            
+            // Ensure schedule exists
+            const currentSchedule = s.schedules?.[monthStr];
+            if (!currentSchedule) return s;
+
+            const currentDays = currentSchedule.plannedDays || [];
+            const isPlanned = currentDays.includes(dateStr);
+            
+            return {
+              ...s,
+              schedules: {
+                ...s.schedules,
+                [monthStr]: {
+                  ...currentSchedule,
+                  plannedDays: isPlanned 
+                    ? currentDays.filter(d => d !== dateStr) 
+                    : [...currentDays, dateStr].sort()
+                }
+              }
+            };
+          })
         }));
         saveToCloud(get());
       },

@@ -26,40 +26,46 @@ export interface Subtopic {
 export interface Month {
   id: string;
   name: string;
-  year?: number; // Added year field
+  year?: number; 
+}
+
+export interface SubjectSchedule {
+  monthlyGoal: number; // Goal for this specific month
+  plannedDays: string[]; // Days planned for this specific month
+  isCompleted: boolean; // Completion status for this specific month
+  notes: string; // Notes for this specific month
 }
 
 export interface Subject {
   id: string;
   title: string;
-  monthId: string; // Links to Month.id (which acts as Exam ID)
+  monthId: string; // Links to the Exam/Group ID (e.g., "Residency USP")
   tag?: string;
-  weeklyGoal?: number; // Hours
   color: string;
   subtopics: Subtopic[];
   studiedDates: string[]; // ISO date strings (YYYY-MM-DD)
-  scheduledDate?: string; // New: YYYY-MM for scheduling in the timeline
-  isCompleted?: boolean; // New: Manual completion status
-  notes?: string; // New: User notes
+  
+  // New: Dictionary to hold data for specific schedule months (Key: YYYY-MM)
+  schedules: Record<string, SubjectSchedule>;
 }
 
 export interface Session {
   id: string;
   subjectId: string;
-  startTime: number; // Timestamp
+  startTime: number; 
   duration: number; // Seconds
   date: string; // ISO Date YYYY-MM-DD
   status: 'completed' | 'incomplete';
 }
 
 export interface Settings {
-  pomodoroDuration: number; // Minutes
-  shortBreakDuration: number; // Minutes
-  longBreakDuration: number; // Minutes
+  pomodoroDuration: number; 
+  shortBreakDuration: number; 
+  longBreakDuration: number; 
   monthlyGoalHours: number;
   userName: string;
   finalGoal: string;
-  healthDegree: HealthDegree; // New field
+  healthDegree: HealthDegree; 
 }
 
 export interface WeeklyProgress {

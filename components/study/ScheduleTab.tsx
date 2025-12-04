@@ -1,12 +1,13 @@
+
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
-import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2 } from "lucide-react";
+import { Calendar, Plus, X, ArrowRight, Check, BookOpen, ChevronDown, ChevronUp, Clock, AlertCircle, CheckCircle2, Circle, Edit3, TrendingUp, MoreHorizontal, StickyNote, Trash2, CalendarDays } from "lucide-react";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
 import { cn, formatDate } from "../../lib/utils";
-import { Session, Subject, Subtopic } from "../../types";
+import { Session, Subject, Subtopic, SubjectSchedule } from "../../types";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -18,24 +19,28 @@ const MONTH_NAMES = [
 interface ScheduleSubjectCardProps {
   subject: Subject;
   monthId: string;
+  scheduleData: SubjectSchedule; // Data specific to this month
   sessions: Session[];
   onToggleSubtopic: (subjectId: string, subtopicId: string) => void;
   onUpdateSessionStatus: (sessionId: string, status: 'completed' | 'incomplete') => void;
-  onUpdateSubject: (id: string, updates: Partial<Subject>) => void;
+  onUpdateSubjectSchedule: (id: string, monthId: string, updates: Partial<SubjectSchedule>) => void;
+  onTogglePlannedDay: (subjectId: string, monthId: string, dateStr: string) => void;
 }
 
 const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({ 
   subject, 
-  monthId, 
+  monthId,
+  scheduleData, 
   sessions, 
   onToggleSubtopic,
   onUpdateSessionStatus,
-  onUpdateSubject
+  onUpdateSubjectSchedule,
+  onTogglePlannedDay
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Stats Calculation
-  const goalHours = (subject.weeklyGoal || 0) * 4; // Approx 4 weeks/month
+  // Stats Calculation for this specific month
+  const goalHours = scheduleData.monthlyGoal || 0;
   const subjectSessions = sessions.filter(s => s.subjectId === subject.id && s.date.startsWith(monthId));
   const totalSeconds = subjectSessions.reduce((acc, s) => acc + s.duration, 0);
   const totalHours = totalSeconds / 3600;
@@ -44,10 +49,14 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
   
   const totalSubtopics = subject.subtopics.length;
   const completedSubtopics = subject.subtopics.filter(s => s.isCompleted).length;
-  // Progress is 100% if subject is manually completed OR all goals met
-  const isCompleted = subject.isCompleted;
+  const isCompleted = scheduleData.isCompleted;
 
-  // Determine Color Status based on Hour Progress or Completion
+  // Planning Calculations
+  const plannedDays = scheduleData.plannedDays || [];
+  const hoursPerDay = plannedDays.length > 0 && goalHours > 0 
+    ? (goalHours / plannedDays.length).toFixed(1) 
+    : "0";
+
   const getStatusColor = (p: number) => {
     if (isCompleted) return "bg-green-500";
     if (p >= 100) return "bg-green-500";
@@ -63,6 +72,32 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
       if (p > 0) return "text-orange-600";
       return "text-zinc-400";
   };
+
+  // Generate Calendar Days for Planning
+  const calendarGrid = useMemo(() => {
+    const [year, month] = monthId.split('-').map(Number);
+    const startMonthDate = new Date(year, month - 1, 1);
+    const endMonthDate = new Date(year, month, 0);
+    
+    // Calculate padding days to fill the grid (standard 6-week view if needed, or just month flow)
+    const startDay = startMonthDate.getDay(); // 0 is Sunday
+    const startDate = new Date(startMonthDate);
+    startDate.setDate(startMonthDate.getDate() - startDay);
+    
+    const endDay = endMonthDate.getDay();
+    const endDate = new Date(endMonthDate);
+    endDate.setDate(endMonthDate.getDate() + (6 - endDay));
+    
+    const days: Date[] = [];
+    let current = new Date(startDate);
+    
+    // Generate dates until we cover the end of the month
+    while (current <= endDate) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+    return days;
+  }, [monthId]);
 
   return (
     <motion.div 
@@ -85,7 +120,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
              <div 
                 onClick={(e) => {
                   e.stopPropagation();
-                  onUpdateSubject(subject.id, { isCompleted: !subject.isCompleted });
+                  onUpdateSubjectSchedule(subject.id, monthId, { isCompleted: !isCompleted });
                 }}
                 className={cn(
                   "w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer hover:scale-105",
@@ -154,14 +189,75 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
           >
             <div className="p-5 space-y-6">
                
+               {/* Planning Section */}
+               <div className="bg-white rounded-xl border border-zinc-200 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                     <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                       <CalendarDays className="w-4 h-4 text-indigo-500" /> Planejamento de Estudos
+                     </h5>
+                     <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-zinc-500">Meta do Mês (Horas):</span>
+                        <Input 
+                           type="number"
+                           min="0"
+                           className="w-20 h-8 text-sm font-bold text-center"
+                           value={scheduleData.monthlyGoal || 0}
+                           onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { monthlyGoal: parseInt(e.target.value) || 0 })}
+                        />
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs text-zinc-400">Selecione os dias da semana para estudar esta matéria:</p>
+                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                      {['D','S','T','Q','Q','S','S'].map((d, i) => (
+                        <span key={i} className="text-[10px] font-bold text-zinc-400">{d}</span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                       {calendarGrid.map((day, i) => {
+                          const dateStr = formatDate(day);
+                          // Only check if it belongs to the month logically for styling, but allow selection
+                          const targetDate = new Date(monthId + '-01');
+                          // We allow selecting ANY day shown in the grid, but usually user wants current month.
+                          // The requirement is "all days of the month... unrestricted".
+                          // The grid generates dates. We make them all clickable.
+                          const isCurrentMonth = day.getMonth() === targetDate.getMonth();
+                          const isSelected = plannedDays.includes(dateStr);
+                          
+                          return (
+                             <div 
+                                key={i}
+                                onClick={() => onTogglePlannedDay(subject.id, monthId, dateStr)}
+                                className={cn(
+                                   "aspect-square rounded-lg flex items-center justify-center text-xs font-medium cursor-pointer transition-all border",
+                                   isSelected 
+                                     ? "bg-indigo-600 border-indigo-600 text-white shadow-sm" 
+                                     : isCurrentMonth 
+                                        ? "bg-zinc-50 border-transparent text-zinc-500 hover:bg-white hover:border-zinc-300"
+                                        : "bg-zinc-50/50 border-transparent text-zinc-300 hover:bg-white hover:border-zinc-200"
+                                )}
+                             >
+                                {day.getDate()}
+                             </div>
+                          );
+                       })}
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-2 border-t border-zinc-100">
+                       <span className="text-zinc-500">{plannedDays.length} dias selecionados</span>
+                       <span className="text-indigo-600 font-medium">~{hoursPerDay}h por dia planejado</span>
+                    </div>
+                  </div>
+               </div>
+
                {/* Notes Section */}
                <div className="space-y-2">
                   <h5 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
                     <StickyNote className="w-3 h-3" /> Notas
                   </h5>
                   <textarea
-                    value={subject.notes || ''}
-                    onChange={(e) => onUpdateSubject(subject.id, { notes: e.target.value })}
+                    value={scheduleData.notes || ''}
+                    onChange={(e) => onUpdateSubjectSchedule(subject.id, monthId, { notes: e.target.value })}
                     placeholder="Adicione observações, links ou lembretes sobre esta matéria..."
                     className="w-full min-h-[80px] text-sm p-3 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 resize-none"
                   />
@@ -255,13 +351,14 @@ const ScheduleTab = () => {
     months, 
     subjects, 
     sessions, 
-    scheduleSubject, 
     toggleSubtopic,
     updateSessionStatus,
     activeScheduleMonths,
     addActiveScheduleMonth,
     removeActiveScheduleMonth,
-    updateSubject
+    toggleSubjectInMonth,
+    updateSubjectSchedule,
+    toggleSubjectPlannedDay
   } = useStudyStore();
   
   const [viewingMonthId, setViewingMonthId] = useState<string | null>(null);
@@ -283,26 +380,27 @@ const ScheduleTab = () => {
   }, [activeScheduleMonths]);
 
   const getMonthStats = (monthId: string) => {
-    const monthSubjects = subjects.filter(s => s.scheduledDate === monthId);
+    // Find subjects that have an entry for this month in their schedules
+    const monthSubjects = subjects.filter(s => !!s.schedules && !!s.schedules[monthId]);
+    
     let totalGoalHours = 0;
     let totalStudiedSeconds = 0;
     
     monthSubjects.forEach(sub => {
-      totalGoalHours += (sub.weeklyGoal || 0) * 4;
+      totalGoalHours += (sub.schedules[monthId].monthlyGoal || 0);
     });
 
     sessions.forEach(sess => {
+      // Check if session belongs to month AND belongs to a subject scheduled in this month
       if (sess.date.startsWith(monthId) && monthSubjects.find(s => s.id === sess.subjectId)) {
         totalStudiedSeconds += sess.duration;
       }
     });
 
     const totalStudiedHours = totalStudiedSeconds / 3600;
-    // Calculate progress with a boost for completed subjects to make it feel more rewarding
     const rawProgress = totalGoalHours > 0 ? (totalStudiedHours / totalGoalHours) * 100 : 0;
     
-    // Check for manually completed subjects
-    const completedCount = monthSubjects.filter(s => s.isCompleted).length;
+    const completedCount = monthSubjects.filter(s => s.schedules[monthId].isCompleted).length;
     const allCompleted = monthSubjects.length > 0 && completedCount === monthSubjects.length;
 
     return {
@@ -314,12 +412,7 @@ const ScheduleTab = () => {
   };
 
   const handleToggleSchedule = (subjectId: string, targetMonthId: string) => {
-    const subject = subjects.find(s => s.id === subjectId);
-    if (subject?.scheduledDate === targetMonthId) {
-      scheduleSubject(subjectId, undefined);
-    } else {
-      scheduleSubject(subjectId, targetMonthId);
-    }
+    toggleSubjectInMonth(subjectId, targetMonthId);
   };
 
   const handleAddMonth = (e: React.FormEvent) => {
@@ -331,7 +424,8 @@ const ScheduleTab = () => {
   };
 
   const viewingMonthData = viewingMonthId ? calendarMonths.find(m => m.id === viewingMonthId) : null;
-  const viewingMonthSubjects = viewingMonthId ? subjects.filter(s => s.scheduledDate === viewingMonthId) : [];
+  // Filter subjects that have the month key
+  const viewingMonthSubjects = viewingMonthId ? subjects.filter(s => !!s.schedules && !!s.schedules[viewingMonthId]) : [];
   const viewingMonthStats = viewingMonthId ? getMonthStats(viewingMonthId) : null;
 
   return (
@@ -358,7 +452,7 @@ const ScheduleTab = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {calendarMonths.map((month) => {
           const stats = getMonthStats(month.id);
-          const isCurrentMonth = format(new Date(), "yyyy-MM") === month.id;
+          const isCurrentMonth = formatDate(new Date()).slice(0, 7) === month.id;
 
           return (
             <motion.div 
@@ -581,10 +675,12 @@ const ScheduleTab = () => {
                                 key={subject.id}
                                 subject={subject}
                                 monthId={viewingMonthId}
+                                scheduleData={subject.schedules[viewingMonthId]}
                                 sessions={sessions}
                                 onToggleSubtopic={toggleSubtopic}
                                 onUpdateSessionStatus={updateSessionStatus}
-                                onUpdateSubject={updateSubject}
+                                onUpdateSubjectSchedule={updateSubjectSchedule}
+                                onTogglePlannedDay={toggleSubjectPlannedDay}
                              />
                           ))}
                        </div>
@@ -640,8 +736,8 @@ const ScheduleTab = () => {
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
                                 {examSubjects.map(sub => {
-                                    const isSelected = sub.scheduledDate === managingMonthId;
-                                    const isScheduledElsewhere = sub.scheduledDate && sub.scheduledDate !== managingMonthId;
+                                    // Check if current month exists in schedules map
+                                    const isSelected = !!sub.schedules && !!sub.schedules[managingMonthId];
                                     
                                     return (
                                         <div 
@@ -651,18 +747,11 @@ const ScheduleTab = () => {
                                                 "p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group",
                                                 isSelected 
                                                     ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200" 
-                                                    : isScheduledElsewhere
-                                                        ? "bg-zinc-100 border-zinc-200 text-zinc-500"
-                                                        : "bg-white border-zinc-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-zinc-800"
+                                                    : "bg-white border-zinc-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-zinc-800"
                                             )}
                                         >
                                             <div className="overflow-hidden">
                                                 <p className={cn("font-medium text-sm truncate", isSelected ? "text-white" : "text-zinc-800")}>{sub.title}</p>
-                                                {isScheduledElsewhere && (
-                                                    <p className="text-[10px] mt-0.5 text-zinc-400">
-                                                        Em {calendarMonths.find(m => m.id === sub.scheduledDate)?.name || 'Outro Mês'}
-                                                    </p>
-                                                )}
                                             </div>
                                             {isSelected && <Check className="w-4 h-4 shrink-0 text-white" />}
                                         </div>
