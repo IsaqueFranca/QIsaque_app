@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Month } from "../../types";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, Check, X, Calendar, AlertCircle, ArrowRight } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, FileText, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
@@ -74,15 +74,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
       const yearB = b.year || 0;
       if (yearA !== yearB) return yearB - yearA;
 
-      // 2. Compare Month Index Descending (if present in name)
-      const indexA = getMonthIndex(a.name);
-      const indexB = getMonthIndex(b.name);
-      
-      // If neither has a recognizable month name, keep order or sort alphabetically?
-      // Let's stick to month index if found.
-      if (indexA !== -1 && indexB !== -1) {
-        return indexB - indexA;
-      }
+      // 2. Keep created order or alphabetical if needed
       return 0;
     });
   }, [months]);
@@ -91,12 +83,12 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-           <h3 className="text-2xl font-bold tracking-tight text-zinc-900">Planejamento</h3>
-           <p className="text-zinc-500 text-sm">Organize seus estudos por períodos.</p>
+           <h3 className="text-2xl font-bold tracking-tight text-zinc-900">Minhas Provas</h3>
+           <p className="text-zinc-500 text-sm">Gerencie seus exames e cronogramas de estudo.</p>
         </div>
         <Button onClick={() => setIsAdding(!isAdding)} variant="default" className="rounded-full px-6">
           {isAdding ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-          {isAdding ? "Cancelar" : "Novo Mês"}
+          {isAdding ? "Cancelar" : "Nova Prova"}
         </Button>
       </div>
 
@@ -112,7 +104,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
             <Input
               value={newMonthName}
               onChange={(e) => setNewMonthName(e.target.value)}
-              placeholder="Ex: Março"
+              placeholder="Ex: Residência USP 2025"
               className="flex-[2] bg-white h-12 text-lg px-4 border-zinc-200"
               autoFocus
             />
@@ -160,7 +152,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                         <div 
                             className="w-10 h-10 rounded-full bg-zinc-900 text-zinc-50 flex items-center justify-center shadow-lg shadow-zinc-500/10 group-hover:scale-110 transition-transform duration-300"
                         >
-                            <Calendar className="w-5 h-5" />
+                            <FileText className="w-5 h-5" />
                         </div>
                         {month.year && (
                            <span className="text-sm font-semibold text-zinc-400 bg-zinc-50 px-2 py-1 rounded-md">
@@ -195,9 +187,9 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                 onClick={() => !isEditing && onSelectMonth(month.id)}
               >
                 <div>
-                   <h4 className="font-bold text-xl text-zinc-900 group-hover:text-black transition-colors">{month.name}</h4>
+                   <h4 className="font-bold text-xl text-zinc-900 group-hover:text-black transition-colors truncate pr-2" title={month.name}>{month.name}</h4>
                    <p className="text-zinc-500 text-sm mt-1 flex items-center gap-2 group-hover:gap-3 transition-all">
-                      {getSubjectsByMonthId(month.id).length} tópicos
+                      {getSubjectsByMonthId(month.id).length} matérias
                       <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                    </p>
                 </div>
@@ -218,11 +210,11 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
       {sortedMonths.length === 0 && !isAdding && (
          <div className="text-center py-20">
            <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
-             <Calendar className="w-8 h-8 text-zinc-300" />
+             <FileText className="w-8 h-8 text-zinc-300" />
            </div>
            <h3 className="text-lg font-semibold text-zinc-900">Comece sua jornada</h3>
-           <p className="text-zinc-500 max-w-xs mx-auto mt-2 mb-6">Crie seu primeiro mês de estudos para organizar suas metas.</p>
-           <Button onClick={() => setIsAdding(true)} variant="default" size="lg" className="rounded-full">Criar Mês</Button>
+           <p className="text-zinc-500 max-w-xs mx-auto mt-2 mb-6">Crie sua primeira prova para organizar o conteúdo programático.</p>
+           <Button onClick={() => setIsAdding(true)} variant="default" size="lg" className="rounded-full">Criar Prova</Button>
          </div>
       )}
 
@@ -246,9 +238,9 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
                  <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="font-bold text-xl text-zinc-900 mb-2">Excluir Mês?</h3>
+              <h3 className="font-bold text-xl text-zinc-900 mb-2">Excluir Prova?</h3>
               <p className="text-zinc-500 leading-relaxed mb-8">
-                Esta ação é irreversível. Todos os dados associados a este mês serão apagados.
+                Esta ação é irreversível. Todos os assuntos e progresso desta prova serão apagados.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" className="h-12" onClick={() => setDeleteId(null)}>Voltar</Button>

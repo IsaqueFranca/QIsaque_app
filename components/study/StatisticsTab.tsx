@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Session, Month, Subject } from "../../types";
 import { BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Bar } from 'recharts';
@@ -169,9 +170,9 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                   value={selectedMonthId}
                   onChange={(e) => setSelectedMonthId(e.target.value)}
                 >
-                  {months.length === 0 && <option>Nenhum mês cadastrado</option>}
+                  {months.length === 0 && <option className="text-zinc-900 bg-white">Nenhum mês cadastrado</option>}
                   {months.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
+                    <option key={m.id} value={m.id} className="text-zinc-900 bg-white">{m.name}</option>
                   ))}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">

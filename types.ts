@@ -10,6 +10,13 @@ export type HealthDegree =
   | 'Clinical Analysis'
   | 'Radiology';
 
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
 export interface Subtopic {
   id: string;
   title: string;
@@ -25,12 +32,13 @@ export interface Month {
 export interface Subject {
   id: string;
   title: string;
-  monthId: string; // Links to Month.id
+  monthId: string; // Links to Month.id (which acts as Exam ID)
   tag?: string;
   weeklyGoal?: number; // Hours
   color: string;
   subtopics: Subtopic[];
   studiedDates: string[]; // ISO date strings (YYYY-MM-DD)
+  scheduledDate?: string; // New: YYYY-MM for scheduling in the timeline
 }
 
 export interface Session {
