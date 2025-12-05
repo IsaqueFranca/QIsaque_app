@@ -3,32 +3,22 @@ import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Calendar, Plus, X, ArrowRight, Check, ChevronRight, Clock, 
-  AlertCircle, CheckCircle2, List, LayoutGrid, Maximize2, 
+  Calendar, Plus, X, ArrowRight, X as CloseIcon, ChevronRight, Clock, 
+  Activity, CheckCircle2, List, LayoutGrid, Maximize2, 
   Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
-  FileText, Table2, PieChart, Star, Activity
+  FileText
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn, formatDate, MONTH_NAMES } from "../../lib/utils";
-import { Subject, SubjectSchedule, Session, ImportanceLevel } from "../../types";
-import { getDay, eachDayOfInterval, format, isSameWeek } from "date-fns";
+import { Subject, SubjectSchedule, ImportanceLevel } from "../../types";
+import { getDay, eachDayOfInterval, format, addDays, isSameMonth, isSameDay } from "date-fns";
 import ptBR from "date-fns/locale/pt-BR";
 
-// Helper to replace startOfWeek since import was failing
-const getStartOfWeek = (date: Date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day; // weekStartsOn: 0 (Sunday)
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const IMPORTANCE_CONFIG: Record<ImportanceLevel, { label: string, color: string, weight: number, bg: string, border: string }> = {
-    high: { label: 'Alta', color: 'text-red-600', weight: 3, bg: 'bg-red-50', border: 'border-red-200' },
-    medium: { label: 'Média', color: 'text-orange-600', weight: 2, bg: 'bg-orange-50', border: 'border-orange-200' },
-    low: { label: 'Baixa', color: 'text-green-600', weight: 1, bg: 'bg-green-50', border: 'border-green-200' },
+const IMPORTANCE_CONFIG: Record<ImportanceLevel, { label: string, color: string, weight: number, bg: string, border: string, dot: string }> = {
+    high: { label: 'Alta', color: 'text-red-600', weight: 3, bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
+    medium: { label: 'Média', color: 'text-orange-600', weight: 2, bg: 'bg-orange-50', border: 'border-orange-200', dot: 'bg-orange-500' },
+    low: { label: 'Baixa', color: 'text-green-600', weight: 1, bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
 };
 
 // --- Monthly Summary Modal ---
@@ -41,46 +31,51 @@ interface MonthlySummaryModalProps {
 
 const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subjects, onClose }) => {
   const [year, month] = monthId.split('-').map(Number);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date(year, month - 1, 1));
   
-  const { dailyData, subjectStats } = useMemo(() => {
+  // Prepare Map: DateString -> Array of Subjects
+  const scheduleMap = useMemo(() => {
+    const map: Record<string, Subject[]> = {};
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0);
     const days = eachDayOfInterval({ start, end });
-    
-    const dailyData: { date: Date; items: { subject: string; hours: number }[] }[] = [];
-    const stats: Record<string, { count: number; totalHours: number; title: string }> = {};
-
-    // Initialize stats
-    subjects.forEach(s => {
-       stats[s.id] = { count: 0, totalHours: 0, title: s.title };
-    });
 
     days.forEach(day => {
-      const dateStr = formatDate(day);
-      const items: { subject: string; hours: number }[] = [];
-      
-      subjects.forEach(sub => {
-        const schedule = sub.schedules?.[monthId];
-        if (schedule?.plannedDays?.includes(dateStr)) {
-           const assignedDays = schedule.plannedDays.length;
-           const hours = assignedDays > 0 ? (schedule.monthlyGoal || 0) / assignedDays : 0;
-           items.push({ subject: sub.title, hours });
-
-           // Update Stats
-           if(stats[sub.id]) {
-             stats[sub.id].count += 1;
-             stats[sub.id].totalHours += hours;
-           }
-        }
-      });
-      
-      if (items.length > 0) {
-        dailyData.push({ date: day, items });
-      }
+       const dStr = formatDate(day);
+       map[dStr] = [];
+       subjects.forEach(sub => {
+          if (sub.schedules?.[monthId]?.plannedDays?.includes(dStr)) {
+             map[dStr].push(sub);
+          }
+       });
     });
-
-    return { dailyData, subjectStats: Object.values(stats).filter(s => s.count > 0).sort((a,b) => b.totalHours - a.totalHours) };
+    return map;
   }, [monthId, subjects, year, month]);
+
+  // Calendar Grid Generation
+  const calendarDays = useMemo(() => {
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    const startDate = addDays(monthStart, -getDay(monthStart));
+    const endDate = addDays(monthEnd, 6 - getDay(monthEnd));
+
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  }, [year, month]);
+
+  const selectedDateSubjects = scheduleMap[formatDate(selectedDate)] || [];
+
+  // Stats Calculation
+  const stats = useMemo(() => {
+     const data = Object.values(scheduleMap).flat();
+     const totalSessions = data.length;
+     
+     const byImportance = { high: 0, medium: 0, low: 0 };
+     data.forEach(s => {
+        if(s.importance) byImportance[s.importance]++;
+     });
+
+     return { totalSessions, byImportance };
+  }, [scheduleMap]);
 
   return (
     <motion.div 
@@ -94,14 +89,15 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
         initial={{ scale: 0.95, y: 10 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 10 }}
-        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-zinc-100 flex flex-col overflow-hidden"
+        className="bg-white rounded-3xl w-full max-w-5xl h-[85vh] shadow-2xl border border-zinc-100 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-white shrink-0">
            <div>
               <h3 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
-                 <FileText className="w-5 h-5 text-indigo-500" />
-                 Resumo do Planejamento
+                 <Calendar className="w-5 h-5 text-indigo-500" />
+                 Visão Geral do Mês
               </h3>
               <p className="text-sm text-zinc-500 capitalize">
                 {MONTH_NAMES[month - 1]} {year}
@@ -110,81 +106,139 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
            <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-6 space-y-8">
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Daily Study Distribution Table */}
-                <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
-                  <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                      <Table2 className="w-4 h-4 text-zinc-400" />
-                      Cronograma Detalhado
-                  </h4>
-                  <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-zinc-200">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="sticky top-0 bg-white shadow-sm z-10">
-                        <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                          <th className="py-2 px-3">Data</th>
-                          <th className="py-2 px-3">Matéria</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
-                        {dailyData.length === 0 ? (
-                          <tr><td colSpan={2} className="py-4 text-center text-zinc-400 italic">Sem dados</td></tr>
-                        ) : (
-                          dailyData.flatMap((day) => 
-                            day.items.map((item, idx) => (
-                              <tr key={`${formatDate(day.date)}-${idx}`} className="hover:bg-zinc-50 transition-colors">
-                                <td className="py-1.5 px-3 font-medium text-zinc-900 whitespace-nowrap align-top">
-                                  {idx === 0 ? format(day.date, "dd/MM", { locale: ptBR }) : ""}
-                                </td>
-                                <td className="py-1.5 px-3">{item.subject}</td>
-                              </tr>
-                            ))
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+        {/* Main Content Split View */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            
+            {/* Left: Interactive Calendar */}
+            <div className="flex-1 flex flex-col border-r border-zinc-100 bg-zinc-50/30 overflow-hidden">
+                <div className="p-4 grid grid-cols-7 gap-1 text-center border-b border-zinc-100 bg-white">
+                   {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
+                      <div key={d} className="text-xs font-bold text-zinc-400 uppercase tracking-wider py-2">{d}</div>
+                   ))}
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4">
+                   <div className="grid grid-cols-7 gap-2 auto-rows-fr h-full min-h-[400px]">
+                      {calendarDays.map((date, i) => {
+                         const dateStr = formatDate(date);
+                         const isCurrentMonth = isSameMonth(date, new Date(year, month - 1, 1));
+                         const isSelected = isSameDay(date, selectedDate);
+                         const daySubjects = scheduleMap[dateStr] || [];
+                         
+                         return (
+                            <div 
+                               key={i}
+                               onClick={() => setSelectedDate(date)}
+                               className={cn(
+                                  "relative rounded-xl border p-2 flex flex-col gap-1 transition-all cursor-pointer hover:border-indigo-300 min-h-[80px]",
+                                  !isCurrentMonth && "opacity-30 bg-zinc-50 grayscale",
+                                  isSelected 
+                                     ? "bg-white border-indigo-500 ring-2 ring-indigo-100 shadow-md z-10" 
+                                     : "bg-white border-zinc-100 hover:shadow-sm"
+                               )}
+                            >
+                               <span className={cn(
+                                  "text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full",
+                                  isSelected ? "bg-indigo-600 text-white" : "text-zinc-700",
+                                  !isCurrentMonth && "text-zinc-400"
+                               )}>
+                                  {date.getDate()}
+                               </span>
+                               
+                               <div className="flex-1 flex flex-wrap content-start gap-1 mt-1">
+                                  {daySubjects.slice(0, 8).map((sub, idx) => (
+                                     <div 
+                                        key={idx} 
+                                        className={cn(
+                                           "w-2 h-2 rounded-full",
+                                           IMPORTANCE_CONFIG[sub.importance || 'medium'].dot
+                                        )}
+                                        title={sub.title}
+                                     />
+                                  ))}
+                                  {daySubjects.length > 8 && (
+                                     <span className="text-[9px] text-zinc-400 leading-none self-end">+</span>
+                                  )}
+                               </div>
+                            </div>
+                         );
+                      })}
+                   </div>
                 </div>
 
-                {/* Frequency Stats */}
-                <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
-                   <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                      <PieChart className="w-4 h-4 text-zinc-400" />
-                      Distribuição por Matéria
-                   </h4>
-                   <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-zinc-200">
-                      <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-white shadow-sm z-10">
-                          <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                            <th className="py-2 px-3">Matéria</th>
-                            <th className="py-2 px-3 text-center">Dias</th>
-                            <th className="py-2 px-3 text-right">Carga Horária</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
-                          {subjectStats.map((stat, idx) => (
-                             <tr key={idx} className="hover:bg-zinc-50">
-                                <td className="py-2 px-3 font-medium">{stat.title}</td>
-                                <td className="py-2 px-3 text-center">
-                                   <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
-                                      {stat.count}
-                                   </span>
-                                </td>
-                                <td className="py-2 px-3 text-right text-zinc-500">{stat.totalHours.toFixed(1)}h</td>
-                             </tr>
-                          ))}
-                          {subjectStats.length === 0 && (
-                             <tr><td colSpan={3} className="py-4 text-center text-zinc-400">Nenhuma distribuição encontrada.</td></tr>
-                          )}
-                        </tbody>
-                      </table>
+                {/* Mini Stats Footer */}
+                <div className="p-4 bg-white border-t border-zinc-100 flex gap-6 text-xs text-zinc-500 shrink-0">
+                   <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500" /> Alta Prioridade: <strong className="text-zinc-900">{stats.byImportance.high}</strong>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-500" /> Média: <strong className="text-zinc-900">{stats.byImportance.medium}</strong>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500" /> Baixa: <strong className="text-zinc-900">{stats.byImportance.low}</strong>
                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div className="p-6 border-t border-zinc-100 bg-white flex justify-end shrink-0">
-           <Button onClick={onClose} className="px-8">Fechar Resumo</Button>
+
+            {/* Right: Selected Day Details */}
+            <div className="w-full md:w-[350px] bg-white flex flex-col shrink-0 shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)] z-20">
+               <div className="p-6 border-b border-zinc-100 bg-zinc-50/50">
+                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Planejamento do dia</h4>
+                  <h2 className="text-2xl font-bold text-zinc-900 capitalize">
+                     {format(selectedDate, "EEEE, dd", { locale: ptBR })}
+                  </h2>
+                  <div className="mt-2 flex items-center gap-2">
+                     <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                        {selectedDateSubjects.length} matérias
+                     </span>
+                  </div>
+               </div>
+
+               <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {selectedDateSubjects.length === 0 ? (
+                     <div className="h-full flex flex-col items-center justify-center text-center text-zinc-400">
+                        <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
+                           <CalendarDays className="w-8 h-8 opacity-20" />
+                        </div>
+                        <p>Nada agendado para este dia.</p>
+                     </div>
+                  ) : (
+                     selectedDateSubjects.map(sub => {
+                        const imp = IMPORTANCE_CONFIG[sub.importance || 'medium'];
+                        return (
+                           <motion.div 
+                              layout
+                              key={sub.id} 
+                              className={cn("p-4 rounded-xl border bg-white shadow-sm flex flex-col gap-2", imp.border)}
+                           >
+                              <div className="flex justify-between items-start">
+                                 <h4 className="font-bold text-zinc-900 text-sm leading-tight">{sub.title}</h4>
+                                 <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide", imp.bg, imp.color)}>
+                                    {imp.label}
+                                 </span>
+                              </div>
+                              
+                              {sub.subtopics.length > 0 && (
+                                 <div className="mt-1 pt-2 border-t border-zinc-50">
+                                    <p className="text-[10px] text-zinc-400 uppercase font-bold mb-1">Foco Sugerido:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                       {sub.subtopics.slice(0, 3).map(t => (
+                                          <span key={t.id} className="text-[10px] bg-zinc-50 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-100 truncate max-w-[150px]">
+                                             {t.title}
+                                          </span>
+                                       ))}
+                                       {sub.subtopics.length > 3 && (
+                                          <span className="text-[10px] text-zinc-400 px-1">+{sub.subtopics.length - 3}</span>
+                                       )}
+                                    </div>
+                                 </div>
+                              )}
+                           </motion.div>
+                        )
+                     })
+                  )}
+               </div>
+            </div>
         </div>
       </motion.div>
     </motion.div>
@@ -267,12 +321,8 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
     monthDates.forEach(d => newDist[formatDate(d)] = []);
 
     // Distribute slots ensuring we don't exceed dailyHours too much, but try to fill available dates
-    // Using a round-robin approach across available dates might be better for spacing
     
     let slotIndex = 0;
-    // Iterate days, filling up to dailyHours
-    // To improve spacing, we can shuffle available dates or iterate sequentially
-    // Let's iterate sequentially but with a randomized offset
     
     // Safety break
     if (slots.length > 0) {
