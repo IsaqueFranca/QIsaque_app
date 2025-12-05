@@ -5,6 +5,7 @@ import { Subject, Session, Settings, Subtopic, Month, User, SubjectSchedule } fr
 import { generateId, formatDate, calculateStreaks } from '../lib/utils';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { eachDayOfInterval, getDay } from 'date-fns';
 
 interface StudyState {
   user: User | null;
@@ -37,8 +38,9 @@ interface StudyState {
   
   // Multi-Month Scheduling Actions
   toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
-  updateSubjectSchedule: (subjectId: string, monthStr, updates: Partial<SubjectSchedule>) => void;
+  updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
   toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
+  generateMonthSchedule: (subjectId: string, monthStr: string, config: { hoursPerWeek: number, preferredDays: number[] }) => void;
   
   deleteSubject: (id: string) => void;
   
@@ -318,6 +320,45 @@ export const useStudyStore = create<StudyState>()(
                   plannedDays: isPlanned 
                     ? currentDays.filter(d => d !== dateStr) 
                     : [...currentDays, dateStr].sort()
+                }
+              }
+            };
+          })
+        }));
+        saveToCloud(get());
+      },
+
+      generateMonthSchedule: (subjectId, monthStr, config) => {
+        set((state) => ({
+          subjects: state.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            
+            const [year, month] = monthStr.split('-').map(Number);
+            const start = new Date(year, month - 1, 1);
+            const end = new Date(year, month, 0);
+            
+            const allDays = eachDayOfInterval({ start, end });
+            const plannedDays = allDays
+                .filter(d => config.preferredDays.includes(getDay(d)))
+                .map(d => formatDate(d));
+            
+            const monthlyGoal = Math.round((allDays.length / 7) * config.hoursPerWeek);
+
+            const currentSchedule = s.schedules?.[monthStr] || {
+                monthlyGoal: 0, 
+                plannedDays: [], 
+                isCompleted: false, 
+                notes: '' 
+            };
+
+            return {
+              ...s,
+              schedules: {
+                ...s.schedules,
+                [monthStr]: {
+                  ...currentSchedule,
+                  plannedDays,
+                  monthlyGoal: monthlyGoal > 0 ? monthlyGoal : currentSchedule.monthlyGoal
                 }
               }
             };
