@@ -11,12 +11,19 @@ import { Input } from "../ui/input";
 import { cn, formatDate, MONTH_NAMES } from "../../lib/utils";
 import { Subject, SubjectSchedule, ImportanceLevel } from "../../types";
 import { getDay, eachDayOfInterval, format, addDays, isSameMonth, isSameDay } from "date-fns";
-import ptBR from "date-fns/locale/pt-BR";
+import { ptBR } from "date-fns/locale";
 
 const IMPORTANCE_CONFIG: Record<ImportanceLevel, { label: string, color: string, weight: number, bg: string, border: string, dot: string }> = {
     high: { label: 'Alta', color: 'text-red-600', weight: 3, bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
     medium: { label: 'Média', color: 'text-orange-600', weight: 2, bg: 'bg-orange-50', border: 'border-orange-200', dot: 'bg-orange-500' },
     low: { label: 'Baixa', color: 'text-green-600', weight: 1, bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
+};
+
+const getImportanceConfig = (importance?: string) => {
+    if (importance === 'high' || importance === 'medium' || importance === 'low') {
+        return IMPORTANCE_CONFIG[importance];
+    }
+    return IMPORTANCE_CONFIG['medium'];
 };
 
 // --- Monthly Summary Modal ---
@@ -68,14 +75,14 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
      if (selectedDateSubjects.length === 0) return {};
      
      // Calculate total weight for the day
-     const totalWeight = selectedDateSubjects.reduce((acc, sub) => {
-        return acc + IMPORTANCE_CONFIG[sub.importance || 'medium'].weight;
+     const totalWeight = selectedDateSubjects.reduce((acc, sub: Subject) => {
+        return acc + getImportanceConfig(sub.importance).weight;
      }, 0);
 
      // Calculate time per subject (in minutes)
      const times: Record<string, number> = {};
      selectedDateSubjects.forEach(sub => {
-        const weight = IMPORTANCE_CONFIG[sub.importance || 'medium'].weight;
+        const weight = getImportanceConfig(sub.importance).weight;
         const ratio = weight / totalWeight;
         const totalMinutes = dailyStudyHours * 60;
         times[sub.id] = Math.round(totalMinutes * ratio);
@@ -91,7 +98,10 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
      
      const byImportance = { high: 0, medium: 0, low: 0 };
      data.forEach(s => {
-        if(s.importance) byImportance[s.importance]++;
+        const imp = s.importance || 'medium';
+        if (imp === 'high' || imp === 'medium' || imp === 'low') {
+            byImportance[imp]++;
+        }
      });
 
      return { totalSessions, byImportance };
@@ -171,7 +181,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                                         key={idx} 
                                         className={cn(
                                            "w-2 h-2 rounded-full",
-                                           IMPORTANCE_CONFIG[sub.importance || 'medium'].dot
+                                           getImportanceConfig(sub.importance).dot
                                         )}
                                         title={sub.title}
                                      />
@@ -229,7 +239,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                      </div>
                   ) : (
                      selectedDateSubjects.map(sub => {
-                        const imp = IMPORTANCE_CONFIG[sub.importance || 'medium'];
+                        const imp = getImportanceConfig(sub.importance);
                         const minutes = calculatedTimes[sub.id] || 0;
                         const hoursDisplay = Math.floor(minutes / 60);
                         const minsDisplay = minutes % 60;
@@ -325,10 +335,9 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
     // 1. Calculate Weights
     let totalWeight = 0;
     const subjectWeights = subjects.map(s => {
-        const imp = s.importance || 'medium';
-        const weight = IMPORTANCE_CONFIG[imp].weight;
-        totalWeight += weight;
-        return { id: s.id, weight, imp };
+        const imp = getImportanceConfig(s.importance);
+        totalWeight += imp.weight;
+        return { id: s.id, weight: imp.weight, imp };
     });
 
     if (totalWeight === 0) return;
@@ -419,7 +428,7 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
     subjects.forEach(s => subjectUpdates[s.id] = []);
 
     Object.entries(distribution).forEach(([dateStr, subIds]) => {
-      subIds.forEach(subId => {
+      (subIds as string[]).forEach(subId => {
         if (!subjectUpdates[subId]) subjectUpdates[subId] = [];
         subjectUpdates[subId].push(dateStr);
       });
@@ -554,7 +563,7 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
                                 {assignedIds.map(subId => {
                                    const sub = subjects.find(s => s.id === subId);
                                    if (!sub) return null;
-                                   const config = IMPORTANCE_CONFIG[sub.importance || 'medium'];
+                                   const config = getImportanceConfig(sub.importance);
                                    return (
                                       <div 
                                          key={subId} 
@@ -629,8 +638,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const plannedDays = scheduleData.plannedDays || [];
   const goalHours = scheduleData.monthlyGoal || 0;
-  const importance = subject.importance || 'medium';
-  const impConfig = IMPORTANCE_CONFIG[importance];
+  const impConfig = getImportanceConfig(subject.importance);
 
   return (
     <>
@@ -709,7 +717,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
                       <div className="flex gap-2">
                         {(['low', 'medium', 'high'] as ImportanceLevel[]).map(lvl => {
                            const conf = IMPORTANCE_CONFIG[lvl];
-                           const active = importance === lvl;
+                           const active = subject.importance === lvl;
                            return (
                                <button
                                   key={lvl}
@@ -843,11 +851,6 @@ const ScheduleTab = () => {
 
   const confirmQuickAddSubject = () => {
      if (expandedMonthId && quickAddSubjectName.trim()) {
-        // We need to link this new subject to a "Month Group".
-        // If we are in "Schedule View", we might not have a specific exam group.
-        // For simplicity, we find the first available exam group or create a default one if needed.
-        // Better UX: Just link to the first one for now or let user choose.
-        // Assuming user has at least one Exam Group created (which is default state).
         const defaultGroupId = registeredMonths[0]?.id;
         
         if (defaultGroupId) {
@@ -877,18 +880,14 @@ const ScheduleTab = () => {
   const handleSaveDistribution = (subjectUpdates: Record<string, string[]>, monthlyGoals: Record<string, number>, dailyHours: number) => {
     if (!expandedMonthId) return;
     
-    // Save daily hours preference globally
     updateSettings({ dailyStudyHours: dailyHours });
 
-    // Save dates
     Object.entries(subjectUpdates).forEach(([subjectId, dates]) => {
-      // Also update the monthly goal for that subject
       const goal = monthlyGoals[subjectId] || 0;
       updateSubjectSchedule(subjectId, expandedMonthId, { plannedDays: dates, monthlyGoal: goal });
     });
 
     setIsAutoDistributing(false);
-    // Show summary after saving
     setShowSummaryModal(true);
   };
 
