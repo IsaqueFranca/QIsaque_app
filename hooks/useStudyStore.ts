@@ -237,6 +237,7 @@ export const useStudyStore = create<StudyState>()(
             monthId,
             tag,
             color: 'bg-blue-500',
+            importance: 'medium', // Default
             subtopics: [],
             studiedDates: [],
             schedules: {} // Initialize empty schedule map
@@ -329,6 +330,8 @@ export const useStudyStore = create<StudyState>()(
       },
 
       generateMonthSchedule: (subjectId, monthStr, config) => {
+        // Legacy support function kept for compatibility if needed, 
+        // but main logic moved to component for batch processing
         set((state) => ({
           subjects: state.subjects.map(s => {
             if (s.id !== subjectId) return s;

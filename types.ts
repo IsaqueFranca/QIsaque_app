@@ -36,12 +36,15 @@ export interface SubjectSchedule {
   notes: string; // Notes for this specific month
 }
 
+export type ImportanceLevel = 'high' | 'medium' | 'low';
+
 export interface Subject {
   id: string;
   title: string;
   monthId: string; // Links to the Exam/Group ID (e.g., "Residency USP")
   tag?: string;
   color: string;
+  importance: ImportanceLevel; // New field
   subtopics: Subtopic[];
   studiedDates: string[]; // ISO date strings (YYYY-MM-DD)
   

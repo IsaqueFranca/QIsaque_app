@@ -6,12 +6,12 @@ import {
   Calendar, Plus, X, ArrowRight, Check, ChevronRight, Clock, 
   AlertCircle, CheckCircle2, List, LayoutGrid, Maximize2, 
   Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
-  FileText, Table2, PieChart
+  FileText, Table2, PieChart, Star, Activity
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn, formatDate, MONTH_NAMES } from "../../lib/utils";
-import { Subject, SubjectSchedule, Session } from "../../types";
+import { Subject, SubjectSchedule, Session, ImportanceLevel } from "../../types";
 import { getDay, eachDayOfInterval, format, isSameWeek } from "date-fns";
 import ptBR from "date-fns/locale/pt-BR";
 
@@ -23,6 +23,12 @@ const getStartOfWeek = (date: Date) => {
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
+};
+
+const IMPORTANCE_CONFIG: Record<ImportanceLevel, { label: string, color: string, weight: number, bg: string, border: string }> = {
+    high: { label: 'Alta', color: 'text-red-600', weight: 3, bg: 'bg-red-50', border: 'border-red-200' },
+    medium: { label: 'Média', color: 'text-orange-600', weight: 2, bg: 'bg-orange-50', border: 'border-orange-200' },
+    low: { label: 'Baixa', color: 'text-green-600', weight: 1, bg: 'bg-green-50', border: 'border-green-200' },
 };
 
 // --- Monthly Summary Modal ---
@@ -76,35 +82,6 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
     return { dailyData, subjectStats: Object.values(stats).filter(s => s.count > 0).sort((a,b) => b.totalHours - a.totalHours) };
   }, [monthId, subjects, year, month]);
 
-  // Group by week for the Overview
-  const weeks = useMemo(() => {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0);
-    const days = eachDayOfInterval({ start, end });
-    const weekMap: Record<string, { date: Date, subjects: string[] }[]> = {};
-
-    days.forEach(day => {
-       const weekStart = getStartOfWeek(day);
-       const weekKey = formatDate(weekStart);
-       
-       if (!weekMap[weekKey]) weekMap[weekKey] = [];
-       
-       const dateStr = formatDate(day);
-       const daySubjects = subjects
-         .filter(s => s.schedules?.[monthId]?.plannedDays?.includes(dateStr))
-         .map(s => s.title);
-         
-       if (daySubjects.length > 0) {
-          weekMap[weekKey].push({ date: day, subjects: daySubjects });
-       }
-    });
-
-    return Object.entries(weekMap).map(([key, days]) => ({
-       start: new Date(key),
-       days
-    }));
-  }, [monthId, subjects, year, month]);
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -134,43 +111,8 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
         </div>
 
         <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-6 space-y-8">
-            
-            {/* A. Saved Automatic Planning Overview */}
-            <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
-               <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-zinc-400" />
-                  Visão Semanal
-               </h4>
-               <div className="space-y-6">
-                  {weeks.map((week, idx) => (
-                    <div key={idx} className="border-l-2 border-indigo-100 pl-4">
-                       <h5 className="text-xs font-bold text-indigo-600 uppercase mb-2">
-                          Semana de {format(week.start, "dd 'de' MMM", { locale: ptBR })}
-                       </h5>
-                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                          {week.days.map((d, i) => (
-                             <div key={i} className="bg-zinc-50 rounded-lg p-2 border border-zinc-100">
-                                <div className="text-[10px] font-bold text-zinc-400 uppercase mb-1">
-                                   {format(d.date, "EEE, dd", { locale: ptBR })}
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                   {d.subjects.map((sub, j) => (
-                                      <span key={j} className="text-[10px] bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-zinc-700 truncate max-w-full shadow-sm">
-                                         {sub}
-                                      </span>
-                                   ))}
-                                </div>
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-                  ))}
-                  {weeks.length === 0 && <p className="text-sm text-zinc-400 italic">Nenhum planejamento encontrado para este mês.</p>}
-               </div>
-            </div>
-
             <div className="grid md:grid-cols-2 gap-6">
-                {/* B. Daily Study Distribution Table */}
+                {/* Daily Study Distribution Table */}
                 <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
                   <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
                       <Table2 className="w-4 h-4 text-zinc-400" />
@@ -204,19 +146,19 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                   </div>
                 </div>
 
-                {/* C. Frequency Stats */}
+                {/* Frequency Stats */}
                 <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
                    <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
                       <PieChart className="w-4 h-4 text-zinc-400" />
-                      Frequência das Matérias
+                      Distribuição por Matéria
                    </h4>
                    <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-zinc-200">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 bg-white shadow-sm z-10">
                           <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
                             <th className="py-2 px-3">Matéria</th>
-                            <th className="py-2 px-3 text-center">Repetições</th>
-                            <th className="py-2 px-3 text-right">Horas Est.</th>
+                            <th className="py-2 px-3 text-center">Dias</th>
+                            <th className="py-2 px-3 text-right">Carga Horária</th>
                           </tr>
                         </thead>
                         <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
@@ -225,7 +167,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                                 <td className="py-2 px-3 font-medium">{stat.title}</td>
                                 <td className="py-2 px-3 text-center">
                                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
-                                      {stat.count}x
+                                      {stat.count}
                                    </span>
                                 </td>
                                 <td className="py-2 px-3 text-right text-zinc-500">{stat.totalHours.toFixed(1)}h</td>
@@ -256,7 +198,7 @@ interface AutoDistributeModalProps {
   monthId: string;
   subjects: Subject[];
   onClose: () => void;
-  onSave: (distribution: Record<string, string[]>) => void;
+  onSave: (distribution: Record<string, string[]>, monthlyGoals: Record<string, number>) => void;
 }
 
 const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subjects, onClose, onSave }) => {
@@ -264,10 +206,11 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
   
   // Config State
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri
-  const [subjectsPerDay, setSubjectsPerDay] = useState(3);
+  const [dailyHours, setDailyHours] = useState(4);
   
   // Preview State
   const [distribution, setDistribution] = useState<Record<string, string[]>>({}); // DateStr -> SubjectIDs[]
+  const [calculatedGoals, setCalculatedGoals] = useState<Record<string, number>>({}); // SubjectID -> MonthlyGoalHours
 
   // Month Data
   const monthDates = useMemo(() => {
@@ -281,137 +224,95 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
     return monthDates.filter(d => selectedWeekdays.includes(getDay(d)));
   }, [monthDates, selectedWeekdays]);
 
-  const totalGoalHours = useMemo(() => {
-    return subjects.reduce((acc, s) => acc + (s.schedules?.[monthId]?.monthlyGoal || 0), 0);
-  }, [subjects, monthId]);
-
-  // Generation Logic (Weekly Bucket Distribution)
+  // Generation Logic (Weighted Distribution)
   const handleGenerate = () => {
-    const newDist: Record<string, string[]> = {};
-    const validSubjects = subjects.filter(s => (s.schedules?.[monthId]?.monthlyGoal || 0) > 0);
-    
-    // Initialize map
-    monthDates.forEach(d => {
-      newDist[formatDate(d)] = [];
-    });
-    
-    if (availableDates.length === 0 || validSubjects.length === 0) {
-      setDistribution(newDist);
+    if (availableDates.length === 0 || subjects.length === 0) {
+      setDistribution({});
       setStep('preview');
       return;
     }
 
-    // 1. Group available dates by week
-    const weeks: Date[][] = [];
-    let currentWeek: Date[] = [];
+    const totalAvailableHours = availableDates.length * dailyHours;
+
+    // 1. Calculate Weights
+    let totalWeight = 0;
+    const subjectWeights = subjects.map(s => {
+        const imp = s.importance || 'medium';
+        const weight = IMPORTANCE_CONFIG[imp].weight;
+        totalWeight += weight;
+        return { id: s.id, weight, imp };
+    });
+
+    if (totalWeight === 0) return;
+
+    // 2. Allocate Hours per Subject
+    const goals: Record<string, number> = {};
+    const slots: string[] = []; // Pool of subject instances (assuming ~1h slots for distribution grain)
+
+    subjectWeights.forEach(sw => {
+        const share = sw.weight / totalWeight;
+        const allocatedHours = totalAvailableHours * share;
+        goals[sw.id] = Math.round(allocatedHours);
+        
+        // Create slots for distribution (rounded)
+        const slotCount = Math.round(allocatedHours);
+        for(let i=0; i<slotCount; i++) slots.push(sw.id);
+    });
+
+    // 3. Distribute slots to days
+    // Shuffle slots to randomize
+    slots.sort(() => Math.random() - 0.5);
+
+    const newDist: Record<string, string[]> = {};
+    monthDates.forEach(d => newDist[formatDate(d)] = []);
+
+    // Distribute slots ensuring we don't exceed dailyHours too much, but try to fill available dates
+    // Using a round-robin approach across available dates might be better for spacing
     
-    // Need to sort available dates to ensure chronological order
-    const sortedDates = [...availableDates].sort((a,b) => a.getTime() - b.getTime());
-
-    if (sortedDates.length > 0) {
-        let lastDate = sortedDates[0];
-        currentWeek.push(lastDate);
-        
-        for (let i = 1; i < sortedDates.length; i++) {
-            const date = sortedDates[i];
-            if (isSameWeek(date, lastDate, { weekStartsOn: 0 })) {
-                currentWeek.push(date);
-            } else {
-                weeks.push(currentWeek);
-                currentWeek = [date];
-            }
-            lastDate = date;
-        }
-        if (currentWeek.length > 0) weeks.push(currentWeek);
-    }
-
-    const totalSlotsInMonth = availableDates.length * subjectsPerDay;
-
-    // 2. Calculate total sessions needed per subject
-    const subjectAllocations = validSubjects.map(s => {
-        const goal = s.schedules?.[monthId]?.monthlyGoal || 0;
-        const ratio = totalGoalHours > 0 ? goal / totalGoalHours : 0;
-        // Ensure at least 1 slot if goal > 0
-        let targetSlots = Math.max(1, Math.round(ratio * totalSlotsInMonth));
-        // Cap at total available days
-        targetSlots = Math.min(targetSlots, availableDates.length);
-        
-        return {
-            id: s.id,
-            totalNeeded: targetSlots,
-            goal
-        };
-    });
-
-    // 3. Distribute sessions into weeks
-    const weekQueues: string[][] = weeks.map(() => []);
-
-    subjectAllocations.forEach(sub => {
-        // Distribute sub.totalNeeded across weeks.length buckets
-        const basePerWeek = Math.floor(sub.totalNeeded / weeks.length);
-        let remainder = sub.totalNeeded % weeks.length;
-        
-        for (let w = 0; w < weeks.length; w++) {
-            let count = basePerWeek;
-            if (remainder > 0) {
-                count++;
-                remainder--;
-            }
-            // Add subject ID 'count' times to this week's queue
-            for (let c = 0; c < count; c++) {
-                weekQueues[w].push(sub.id);
-            }
-        }
-    });
-
-    // 4. Assign from queues to days within each week
-    weeks.forEach((weekDates, wIndex) => {
-        const queue = weekQueues[wIndex];
-        // Shuffle queue slightly to randomize daily placement within the week
-        // or prioritize big ones? Let's shuffle for variety.
-        queue.sort(() => Math.random() - 0.5);
-
-        // Try to place each item in the queue into a day in this week
-        queue.forEach(subId => {
-            // Find a day in this week that:
-            // a) Has < subjectsPerDay
-            // b) Doesn't already have this subject
-            // Preference: Day with fewest subjects so far (load balancing)
-            
-            const validDays = weekDates.filter(d => {
-                const dStr = formatDate(d);
-                return newDist[dStr].length < subjectsPerDay && !newDist[dStr].includes(subId);
-            });
-
-            if (validDays.length > 0) {
-                // Sort by current load (asc)
-                validDays.sort((a, b) => {
-                    const loadA = newDist[formatDate(a)].length;
-                    const loadB = newDist[formatDate(b)].length;
-                    return loadA - loadB;
-                });
+    let slotIndex = 0;
+    // Iterate days, filling up to dailyHours
+    // To improve spacing, we can shuffle available dates or iterate sequentially
+    // Let's iterate sequentially but with a randomized offset
+    
+    // Safety break
+    if (slots.length > 0) {
+        let attempts = 0;
+        while (slotIndex < slots.length && attempts < 1000) {
+            for (const date of availableDates) {
+                if (slotIndex >= slots.length) break;
                 
-                // Pick the best day
-                const bestDay = validDays[0];
-                newDist[formatDate(bestDay)].push(subId);
-            } else {
-                // Cannot place in this week (week full or subject collision on all days)
-                // Try to spill over to next week if possible?
-                // For now, simpler to just drop or force into emptiest day ignoring collision (but we want to avoid duplicate subject per day)
-                // Let's try to find ANY day in the month that fits
-                // Fallback:
-                const anyValidDay = sortedDates.find(d => {
-                     const dStr = formatDate(d);
-                     return newDist[dStr].length < subjectsPerDay && !newDist[dStr].includes(subId);
-                });
-                
-                if (anyValidDay) {
-                    newDist[formatDate(anyValidDay)].push(subId);
+                const dStr = formatDate(date);
+                // If day isn't full (assuming 1 slot = 1 hour roughly)
+                if (newDist[dStr].length < dailyHours) {
+                    // Try to avoid duplicate subject on same day if possible
+                    const subId = slots[slotIndex];
+                    if (!newDist[dStr].includes(subId)) {
+                        newDist[dStr].push(subId);
+                        slotIndex++;
+                    } else {
+                        // Collision: try next day, but if all days collide, allow it (unlikely with diverse subjects)
+                        // For simplicity in this greedy alg, skip and retry in next pass
+                    }
                 }
             }
-        });
-    });
+            attempts++;
+        }
+        
+        // Force remaining slots if any (duplicates allowed now)
+        while (slotIndex < slots.length) {
+             for (const date of availableDates) {
+                 if (slotIndex >= slots.length) break;
+                 const dStr = formatDate(date);
+                 if (newDist[dStr].length < dailyHours + 1) { // Allow slight overflow
+                     newDist[dStr].push(slots[slotIndex]);
+                     slotIndex++;
+                 }
+             }
+             break; // Stop after one forced pass
+        }
+    }
 
+    setCalculatedGoals(goals);
     setDistribution(newDist);
     setStep('preview');
   };
@@ -440,27 +341,8 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
       });
     });
 
-    onSave(subjectUpdates);
+    onSave(subjectUpdates, calculatedGoals);
     onClose();
-  };
-
-  const getEstimatedDailyHours = (dateStr: string) => {
-     const subIds = distribution[dateStr] || [];
-     if (subIds.length === 0) return 0;
-     
-     let total = 0;
-     subIds.forEach(id => {
-        const sub = subjects.find(s => s.id === id);
-        let assignedDaysCount = 0;
-        Object.values(distribution).forEach(dayList => {
-           if (dayList.includes(id)) assignedDaysCount++;
-        });
-        
-        const goal = sub?.schedules?.[monthId]?.monthlyGoal || 0;
-        const duration = assignedDaysCount > 0 ? goal / assignedDaysCount : 0;
-        total += duration;
-     });
-     return total;
   };
 
   return (
@@ -485,7 +367,7 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
                  Distribuição Inteligente
               </h3>
               <p className="text-sm text-zinc-500">
-                {step === 'config' ? 'Configure como deseja distribuir suas horas.' : 'Revise e ajuste a distribuição gerada.'}
+                {step === 'config' ? 'Configure a rotina global. A prioridade de cada matéria definirá a frequência.' : 'Revise e ajuste a distribuição gerada.'}
               </p>
            </div>
            <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
@@ -494,15 +376,30 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
         <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-6">
            {step === 'config' ? (
               <div className="max-w-lg mx-auto space-y-8">
-                 {totalGoalHours === 0 ? (
-                    <div className="bg-amber-50 text-amber-800 p-4 rounded-xl flex items-center gap-3 border border-amber-200">
-                        <AlertCircle className="w-5 h-5" />
-                        <div>
-                            <p className="font-bold">Sem metas definidas</p>
-                            <p className="text-sm">Defina as metas mensais (horas) de cada matéria antes de gerar a distribuição.</p>
-                        </div>
+                 
+                 <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+                    <h4 className="font-bold text-zinc-900 flex items-center gap-2">
+                       <Clock className="w-4 h-4 text-zinc-400" /> Carga Horária Global
+                    </h4>
+                    <div className="space-y-2">
+                       <div className="flex justify-between text-sm">
+                          <span className="text-zinc-500">Horas de Estudo por Dia</span>
+                          <span className="font-bold text-indigo-600">{dailyHours}h</span>
+                       </div>
+                       <input 
+                          type="range" 
+                          min="1" 
+                          max="12" 
+                          step="1"
+                          value={dailyHours}
+                          onChange={(e) => setDailyHours(parseInt(e.target.value))}
+                          className="w-full accent-indigo-600 h-2 bg-zinc-100 rounded-lg appearance-none cursor-pointer"
+                       />
+                       <p className="text-xs text-zinc-400">
+                           As matérias de prioridade <strong>Alta</strong> aparecerão 3x mais que as de prioridade Baixa.
+                       </p>
                     </div>
-                 ) : null}
+                 </div>
 
                  <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
                     <h4 className="font-bold text-zinc-900 flex items-center gap-2">
@@ -529,41 +426,16 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
                     </div>
                  </div>
 
-                 <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
-                    <h4 className="font-bold text-zinc-900 flex items-center gap-2">
-                       <LayoutGrid className="w-4 h-4 text-zinc-400" /> Intensidade
-                    </h4>
-                    <div className="space-y-2">
-                       <div className="flex justify-between text-sm">
-                          <span className="text-zinc-500">Matérias por dia</span>
-                          <span className="font-bold text-indigo-600">{subjectsPerDay}</span>
-                       </div>
-                       <input 
-                          type="range" 
-                          min="1" 
-                          max="8" 
-                          step="1"
-                          value={subjectsPerDay}
-                          onChange={(e) => setSubjectsPerDay(parseInt(e.target.value))}
-                          className="w-full accent-indigo-600 h-2 bg-zinc-100 rounded-lg appearance-none cursor-pointer"
-                       />
-                       <div className="flex justify-between text-[10px] text-zinc-400 font-medium">
-                          <span>Foco Único</span>
-                          <span>Diversificado</span>
-                       </div>
-                    </div>
-                 </div>
-
                  <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                     <div className="text-sm text-indigo-900">
-                       <span className="block font-bold">Resumo do Mês</span>
-                       <span className="opacity-80">{totalGoalHours}h Totais • {availableDates.length} Dias Úteis</span>
+                       <span className="block font-bold">Capacidade Estimada</span>
+                       <span className="opacity-80">{availableDates.length * dailyHours}h Totais no Mês</span>
                     </div>
                     <div className="text-right">
                        <span className="block text-2xl font-bold text-indigo-600">
-                          ~{(availableDates.length > 0 ? totalGoalHours / availableDates.length : 0).toFixed(1)}h
+                          {subjects.length}
                        </span>
-                       <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Por Dia</span>
+                       <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Matérias</span>
                     </div>
                  </div>
               </div>
@@ -579,7 +451,6 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
                     {monthDates.map(date => {
                        const dateStr = formatDate(date);
                        const assignedIds = distribution[dateStr] || [];
-                       const dailyHours = getEstimatedDailyHours(dateStr);
                        const isSelected = selectedWeekdays.includes(getDay(date));
                        
                        return (
@@ -594,21 +465,20 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
                                 <span className={cn("text-sm font-bold", isSelected ? "text-zinc-700" : "text-zinc-400")}>
                                    {date.getDate()}
                                 </span>
-                                {assignedIds.length > 0 && (
-                                   <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-md">
-                                      ~{dailyHours.toFixed(1)}h
-                                   </span>
-                                )}
                              </div>
                              <div className="flex-1 flex flex-col gap-1">
                                 {assignedIds.map(subId => {
                                    const sub = subjects.find(s => s.id === subId);
                                    if (!sub) return null;
+                                   const config = IMPORTANCE_CONFIG[sub.importance || 'medium'];
                                    return (
                                       <div 
                                          key={subId} 
                                          onClick={() => toggleAssignment(dateStr, subId)}
-                                         className="text-[10px] bg-zinc-100 px-2 py-1 rounded-md text-zinc-700 truncate cursor-pointer hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-between group"
+                                         className={cn(
+                                             "text-[10px] px-2 py-1 rounded-md truncate cursor-pointer hover:opacity-80 transition-colors flex items-center justify-between group",
+                                             config.bg, config.color
+                                         )}
                                       >
                                          <span className="truncate">{sub.title}</span>
                                          <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" />
@@ -628,7 +498,7 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
            {step === 'config' ? (
               <>
                  <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-                 <Button onClick={handleGenerate} disabled={totalGoalHours === 0} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8">
+                 <Button onClick={handleGenerate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8">
                     Gerar Cronograma <ArrowRight className="w-4 h-4 ml-2" />
                  </Button>
               </>
@@ -659,32 +529,24 @@ interface ScheduleSubjectCardProps {
   subject: Subject;
   monthId: string;
   scheduleData: SubjectSchedule; 
+  onUpdateSubject: (id: string, updates: Partial<Subject>) => void;
   onUpdateSubjectSchedule: (id: string, monthId: string, updates: Partial<SubjectSchedule>) => void;
   onTogglePlannedDay: (subjectId: string, monthId: string, dateStr: string) => void;
-  generateMonthSchedule: (subjectId: string, monthStr: string, config: any) => void;
 }
 
 const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({ 
   subject, 
   monthId,
   scheduleData, 
+  onUpdateSubject,
   onUpdateSubjectSchedule,
-  onTogglePlannedDay,
-  generateMonthSchedule
+  onTogglePlannedDay
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [weeklyHours, setWeeklyHours] = useState(4);
-  const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]); // Mon, Wed, Fri default
-
   const plannedDays = scheduleData.plannedDays || [];
   const goalHours = scheduleData.monthlyGoal || 0;
-
-  const handleGenerateWeekly = () => {
-    generateMonthSchedule(subject.id, monthId, {
-      hoursPerWeek: weeklyHours,
-      preferredDays: weeklyDays
-    });
-  };
+  const importance = subject.importance || 'medium';
+  const impConfig = IMPORTANCE_CONFIG[importance];
 
   return (
     <>
@@ -692,19 +554,22 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
         layout
         onClick={() => setIsExpanded(true)}
         className={cn(
-          "bg-white border rounded-lg overflow-hidden transition-all duration-300 flex flex-col cursor-pointer group hover:shadow-md",
-          "border-zinc-200 hover:border-indigo-300"
+          "bg-white border rounded-lg overflow-hidden transition-all duration-300 flex flex-col cursor-pointer group hover:shadow-md relative",
+          impConfig.border
         )}
       >
+         <div className={cn("absolute top-0 right-0 px-2 py-0.5 text-[9px] font-bold uppercase rounded-bl-lg", impConfig.bg, impConfig.color)}>
+             {impConfig.label}
+         </div>
+
         <div className={cn(
-          "px-3 py-2 flex items-center justify-between border-b transition-colors bg-zinc-50/50 border-zinc-100 group-hover:bg-indigo-50/30"
+          "px-3 py-3 flex items-center justify-between border-b transition-colors bg-zinc-50/50 border-zinc-100 group-hover:bg-indigo-50/30"
         )}>
-           <div className="flex-1 min-w-0 flex items-center gap-2">
+           <div className="flex-1 min-w-0 pr-12">
               <h4 className="font-bold text-xs truncate text-zinc-900">
                 {subject.title}
               </h4>
            </div>
-           <Maximize2 className="w-3 h-3 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         <div className="p-3 bg-white flex-1 min-h-[60px]">
@@ -755,36 +620,30 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
 
                   <div className="p-5 border-b border-zinc-100 bg-white">
                       <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <Calendar className="w-3 h-3" /> Configuração Semanal
+                         <Activity className="w-3 h-3" /> Nível de Importância
                       </h4>
-                      <div className="space-y-4">
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <label className="text-[10px] uppercase font-bold text-zinc-400">Horas / Semana</label>
-                                <Input type="number" value={weeklyHours} onChange={(e) => setWeeklyHours(parseInt(e.target.value))} className="h-9 mt-1" />
-                            </div>
-                            <Button size="sm" onClick={handleGenerateWeekly} className="mt-5 bg-indigo-600 hover:bg-indigo-700 text-white">
-                                <Wand2 className="w-3 h-3 mr-2" /> Gerar
-                            </Button>
-                        </div>
-                        <div>
-                            <label className="text-[10px] uppercase font-bold text-zinc-400 block mb-2">Dias Preferidos</label>
-                            <div className="flex gap-1">
-                                {['D','S','T','Q','Q','S','S'].map((d, i) => (
-                                    <button 
-                                        key={i}
-                                        onClick={() => setWeeklyDays(prev => prev.includes(i) ? prev.filter(x => x!==i) : [...prev, i])}
-                                        className={cn(
-                                            "w-8 h-8 rounded-lg text-xs font-bold transition-colors",
-                                            weeklyDays.includes(i) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200"
-                                        )}
-                                    >
-                                        {d}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                      <div className="flex gap-2">
+                        {(['low', 'medium', 'high'] as ImportanceLevel[]).map(lvl => {
+                           const conf = IMPORTANCE_CONFIG[lvl];
+                           const active = importance === lvl;
+                           return (
+                               <button
+                                  key={lvl}
+                                  onClick={() => onUpdateSubject(subject.id, { importance: lvl })}
+                                  className={cn(
+                                      "flex-1 py-2 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-2",
+                                      active ? `${conf.bg} ${conf.color} ${conf.border} ring-2 ring-offset-1 ring-zinc-200` : "bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50"
+                                  )}
+                               >
+                                   <div className={cn("w-2 h-2 rounded-full", active ? "bg-current" : "bg-zinc-300")} />
+                                   {conf.label}
+                               </button>
+                           )
+                        })}
                       </div>
+                      <p className="text-[10px] text-zinc-400 mt-2">
+                          Define a frequência desta matéria na distribuição automática. Alta = Mais frequente.
+                      </p>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-5">
@@ -834,7 +693,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
                                     className={cn(
                                         "aspect-square rounded-lg flex items-center justify-center text-xs font-medium cursor-pointer transition-all border",
                                         isSelected 
-                                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" 
+                                            ? `${impConfig.bg} ${impConfig.color} ${impConfig.border} shadow-sm font-bold` 
                                             : "bg-white text-zinc-700 border-zinc-200 hover:border-indigo-300"
                                     )}
                                 >
@@ -865,9 +724,9 @@ const ScheduleTab = () => {
     removeActiveScheduleMonth, 
     duplicateMonthSchedule,
     subjects,
+    updateSubject,
     updateSubjectSchedule,
     toggleSubjectPlannedDay,
-    generateMonthSchedule
   } = useStudyStore();
 
   const [expandedMonthId, setExpandedMonthId] = useState<string | null>(null);
@@ -900,11 +759,16 @@ const ScheduleTab = () => {
     }
   };
 
-  const handleSaveDistribution = (subjectUpdates: Record<string, string[]>) => {
+  const handleSaveDistribution = (subjectUpdates: Record<string, string[]>, monthlyGoals: Record<string, number>) => {
     if (!expandedMonthId) return;
+    
+    // Save dates
     Object.entries(subjectUpdates).forEach(([subjectId, dates]) => {
-      updateSubjectSchedule(subjectId, expandedMonthId, { plannedDays: dates });
+      // Also update the monthly goal for that subject
+      const goal = monthlyGoals[subjectId] || 0;
+      updateSubjectSchedule(subjectId, expandedMonthId, { plannedDays: dates, monthlyGoal: goal });
     });
+
     setIsAutoDistributing(false);
     // Show summary after saving
     setShowSummaryModal(true);
@@ -988,9 +852,9 @@ const ScheduleTab = () => {
                         subject={subject}
                         monthId={expandedMonthId}
                         scheduleData={subject.schedules?.[expandedMonthId] || { monthlyGoal: 0, plannedDays: [], isCompleted: false, notes: '' }}
+                        onUpdateSubject={updateSubject}
                         onUpdateSubjectSchedule={updateSubjectSchedule}
                         onTogglePlannedDay={toggleSubjectPlannedDay}
-                        generateMonthSchedule={generateMonthSchedule}
                     />
                  ))}
              </div>
