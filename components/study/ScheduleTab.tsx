@@ -1,17 +1,208 @@
-
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar, Plus, X, ArrowRight, Check, ChevronRight, Clock, 
   AlertCircle, CheckCircle2, List, LayoutGrid, Maximize2, 
-  Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft 
+  Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
+  FileText, Table2
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn, formatDate, MONTH_NAMES } from "../../lib/utils";
 import { Subject, SubjectSchedule, Session } from "../../types";
-import { getDay, eachDayOfInterval, isSameDay } from "date-fns";
+import { getDay, eachDayOfInterval, format } from "date-fns";
+import ptBR from "date-fns/locale/pt-BR";
+
+// Helper to replace startOfWeek since import was failing
+const getStartOfWeek = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day; // weekStartsOn: 0 (Sunday)
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+// --- Monthly Summary Modal ---
+
+interface MonthlySummaryModalProps {
+  monthId: string;
+  subjects: Subject[];
+  onClose: () => void;
+}
+
+const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subjects, onClose }) => {
+  const [year, month] = monthId.split('-').map(Number);
+  
+  const summaryData = useMemo(() => {
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
+    const days = eachDayOfInterval({ start, end });
+    
+    const dailyData: { date: Date; items: { subject: string; hours: number }[] }[] = [];
+
+    days.forEach(day => {
+      const dateStr = formatDate(day);
+      const items: { subject: string; hours: number }[] = [];
+      
+      subjects.forEach(sub => {
+        const schedule = sub.schedules?.[monthId];
+        if (schedule?.plannedDays?.includes(dateStr)) {
+           const assignedDays = schedule.plannedDays.length;
+           const hours = assignedDays > 0 ? (schedule.monthlyGoal || 0) / assignedDays : 0;
+           items.push({ subject: sub.title, hours });
+        }
+      });
+      
+      if (items.length > 0) {
+        dailyData.push({ date: day, items });
+      }
+    });
+
+    return dailyData;
+  }, [monthId, subjects, year, month]);
+
+  // Group by week for the Overview
+  const weeks = useMemo(() => {
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
+    const days = eachDayOfInterval({ start, end });
+    const weekMap: Record<string, { date: Date, subjects: string[] }[]> = {};
+
+    days.forEach(day => {
+       const weekStart = getStartOfWeek(day);
+       const weekKey = formatDate(weekStart);
+       
+       if (!weekMap[weekKey]) weekMap[weekKey] = [];
+       
+       const dateStr = formatDate(day);
+       const daySubjects = subjects
+         .filter(s => s.schedules?.[monthId]?.plannedDays?.includes(dateStr))
+         .map(s => s.title);
+         
+       if (daySubjects.length > 0) {
+          weekMap[weekKey].push({ date: day, subjects: daySubjects });
+       }
+    });
+
+    return Object.entries(weekMap).map(([key, days]) => ({
+       start: new Date(key),
+       days
+    }));
+  }, [monthId, subjects, year, month]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ scale: 0.95, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10 }}
+        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] shadow-2xl border border-zinc-100 flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-white shrink-0">
+           <div>
+              <h3 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                 <FileText className="w-5 h-5 text-indigo-500" />
+                 Resumo do Planejamento
+              </h3>
+              <p className="text-sm text-zinc-500">
+                Visão geral da distribuição salva para {MONTH_NAMES[month - 1]}.
+              </p>
+           </div>
+           <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-6 space-y-8">
+            
+            {/* A. Saved Automatic Planning Overview */}
+            <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
+               <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-zinc-400" />
+                  Visão Semanal
+               </h4>
+               <div className="space-y-6">
+                  {weeks.map((week, idx) => (
+                    <div key={idx} className="border-l-2 border-indigo-100 pl-4">
+                       <h5 className="text-xs font-bold text-indigo-600 uppercase mb-2">
+                          Semana de {format(week.start, "dd 'de' MMM", { locale: ptBR })}
+                       </h5>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {week.days.map((d, i) => (
+                             <div key={i} className="bg-zinc-50 rounded-lg p-2 border border-zinc-100">
+                                <div className="text-[10px] font-bold text-zinc-400 uppercase mb-1">
+                                   {format(d.date, "EEE, dd", { locale: ptBR })}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                   {d.subjects.map((sub, j) => (
+                                      <span key={j} className="text-[10px] bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-zinc-700 truncate max-w-full">
+                                         {sub}
+                                      </span>
+                                   ))}
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+                  ))}
+                  {weeks.length === 0 && <p className="text-sm text-zinc-400 italic">Nenhum planejamento encontrado para este mês.</p>}
+               </div>
+            </div>
+
+            {/* B. Daily Study Distribution Table */}
+            <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
+               <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                  <Table2 className="w-4 h-4 text-zinc-400" />
+                  Lista Diária de Estudos
+               </h4>
+               <div className="overflow-x-auto">
+                 <table className="w-full text-left border-collapse">
+                   <thead>
+                     <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                       <th className="py-2 px-3">Data</th>
+                       <th className="py-2 px-3">Matéria</th>
+                       <th className="py-2 px-3 text-right">Horas Est.</th>
+                     </tr>
+                   </thead>
+                   <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
+                     {summaryData.length === 0 ? (
+                       <tr><td colSpan={3} className="py-4 text-center text-zinc-400 italic">Sem dados</td></tr>
+                     ) : (
+                       summaryData.flatMap((day) => 
+                         day.items.map((item, idx) => (
+                           <tr key={`${formatDate(day.date)}-${idx}`} className="hover:bg-zinc-50 transition-colors">
+                             <td className="py-1.5 px-3 font-medium text-zinc-900 whitespace-nowrap">
+                               {idx === 0 ? format(day.date, "dd/MM/yyyy") : ""}
+                             </td>
+                             <td className="py-1.5 px-3">{item.subject}</td>
+                             <td className="py-1.5 px-3 text-right font-mono text-zinc-500">
+                               {item.hours > 0 ? item.hours.toFixed(1) + 'h' : '-'}
+                             </td>
+                           </tr>
+                         ))
+                       )
+                     )}
+                   </tbody>
+                 </table>
+               </div>
+            </div>
+        </div>
+        
+        <div className="p-6 border-t border-zinc-100 bg-white flex justify-end shrink-0">
+           <Button onClick={onClose} className="px-8">Fechar Resumo</Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 
 // --- Auto Distribution Modal ---
 
@@ -368,7 +559,6 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
 
   const plannedDays = scheduleData.plannedDays || [];
   const goalHours = scheduleData.monthlyGoal || 0;
-  const isCompleted = scheduleData.isCompleted;
 
   const handleGenerateWeekly = () => {
     generateMonthSchedule(subject.id, monthId, {
@@ -384,22 +574,14 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
         onClick={() => setIsExpanded(true)}
         className={cn(
           "bg-white border rounded-lg overflow-hidden transition-all duration-300 flex flex-col cursor-pointer group hover:shadow-md",
-          "border-zinc-200 hover:border-indigo-300",
-          isCompleted && "border-green-200 bg-green-50/10"
+          "border-zinc-200 hover:border-indigo-300"
         )}
       >
         <div className={cn(
-          "px-3 py-2 flex items-center justify-between border-b transition-colors",
-           isCompleted ? "bg-green-50/30 border-green-100" : "bg-zinc-50/50 border-zinc-100 group-hover:bg-indigo-50/30"
+          "px-3 py-2 flex items-center justify-between border-b transition-colors bg-zinc-50/50 border-zinc-100 group-hover:bg-indigo-50/30"
         )}>
            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <div className={cn(
-                    "w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0",
-                    isCompleted ? "bg-green-500 border-green-500" : "border-zinc-300 bg-white"
-                  )}>
-                  {isCompleted && <Check className="w-3 h-3 text-white" />}
-              </div>
-              <h4 className={cn("font-bold text-xs truncate", isCompleted ? "text-green-800" : "text-zinc-900")}>
+              <h4 className="font-bold text-xs truncate text-zinc-900">
                 {subject.title}
               </h4>
            </div>
@@ -410,8 +592,8 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
            <ul className="space-y-1.5">
              {subject.subtopics.slice(0, 3).map(st => (
                <li key={st.id} className="flex items-start gap-1.5 text-[10px] leading-tight text-zinc-600">
-                  <span className={cn("w-1 h-1 rounded-full mt-1 shrink-0", st.isCompleted ? "bg-green-400" : "bg-zinc-300")} />
-                  <span className={cn("truncate", st.isCompleted ? "text-zinc-400 line-through" : "text-zinc-600")}>
+                  <span className="w-1 h-1 rounded-full mt-1 shrink-0 bg-zinc-300" />
+                  <span className="truncate text-zinc-600">
                     {st.title}
                   </span>
                </li>
@@ -448,11 +630,7 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
                   <div className="p-5 border-b border-zinc-100 flex items-start gap-3 bg-zinc-50/50">
                       <div className="flex-1">
                           <h3 className="text-xl font-bold text-zinc-900">{subject.title}</h3>
-                          <div className="flex gap-2 mt-1">
-                             <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", isCompleted ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-500")}>
-                                {isCompleted ? "Concluído" : "Em andamento"}
-                             </span>
-                          </div>
+                          <p className="text-xs text-zinc-500 mt-1">Configuração da Matéria</p>
                       </div>
                   </div>
 
@@ -495,8 +673,8 @@ const ScheduleSubjectCard: React.FC<ScheduleSubjectCardProps> = ({
                       <ul className="space-y-1">
                           {subject.subtopics.map(st => (
                             <li key={st.id} className="flex items-center gap-2 p-2 rounded hover:bg-zinc-50">
-                               <div className={cn("w-2 h-2 rounded-full", st.isCompleted ? "bg-green-500" : "bg-zinc-300")} />
-                               <span className={cn("text-sm", st.isCompleted && "text-zinc-400 line-through")}>{st.title}</span>
+                               <div className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
+                               <span className="text-sm text-zinc-600">{st.title}</span>
                             </li>
                           ))}
                       </ul>
@@ -578,6 +756,9 @@ const ScheduleTab = () => {
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [monthToDuplicate, setMonthToDuplicate] = useState<string | null>(null);
   const [targetMonthForDuplication, setTargetMonthForDuplication] = useState("");
+  
+  // New state for Summary Modal
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   const handleAddMonth = () => {
      const today = new Date();
@@ -606,6 +787,8 @@ const ScheduleTab = () => {
       updateSubjectSchedule(subjectId, expandedMonthId, { plannedDays: dates });
     });
     setIsAutoDistributing(false);
+    // Show summary after saving
+    setShowSummaryModal(true);
   };
 
   return (
@@ -673,6 +856,9 @@ const ScheduleTab = () => {
                    <Button variant="outline" className="rounded-xl hidden sm:flex" onClick={() => setIsAutoDistributing(true)}>
                       <Wand2 className="w-4 h-4 mr-2 text-indigo-500" /> Distribuição Automática
                    </Button>
+                   <Button variant="ghost" className="rounded-xl hidden sm:flex" onClick={() => setShowSummaryModal(true)}>
+                      <FileText className="w-4 h-4 mr-2 text-zinc-500" /> Ver Resumo
+                   </Button>
                 </div>
              </div>
 
@@ -700,6 +886,15 @@ const ScheduleTab = () => {
              onClose={() => setIsAutoDistributing(false)}
              onSave={handleSaveDistribution}
           />
+      )}
+
+      {/* Monthly Summary Modal */}
+      {showSummaryModal && expandedMonthId && (
+         <MonthlySummaryModal 
+            monthId={expandedMonthId}
+            subjects={subjects}
+            onClose={() => setShowSummaryModal(false)}
+         />
       )}
 
       {/* Duplicate Modal */}
