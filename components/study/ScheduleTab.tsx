@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -5,13 +6,13 @@ import {
   Calendar, Plus, X, ArrowRight, Check, ChevronRight, Clock, 
   AlertCircle, CheckCircle2, List, LayoutGrid, Maximize2, 
   Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
-  FileText, Table2
+  FileText, Table2, PieChart
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn, formatDate, MONTH_NAMES } from "../../lib/utils";
 import { Subject, SubjectSchedule, Session } from "../../types";
-import { getDay, eachDayOfInterval, format } from "date-fns";
+import { getDay, eachDayOfInterval, format, isSameWeek } from "date-fns";
 import ptBR from "date-fns/locale/pt-BR";
 
 // Helper to replace startOfWeek since import was failing
@@ -35,12 +36,18 @@ interface MonthlySummaryModalProps {
 const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subjects, onClose }) => {
   const [year, month] = monthId.split('-').map(Number);
   
-  const summaryData = useMemo(() => {
+  const { dailyData, subjectStats } = useMemo(() => {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0);
     const days = eachDayOfInterval({ start, end });
     
     const dailyData: { date: Date; items: { subject: string; hours: number }[] }[] = [];
+    const stats: Record<string, { count: number; totalHours: number; title: string }> = {};
+
+    // Initialize stats
+    subjects.forEach(s => {
+       stats[s.id] = { count: 0, totalHours: 0, title: s.title };
+    });
 
     days.forEach(day => {
       const dateStr = formatDate(day);
@@ -52,6 +59,12 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
            const assignedDays = schedule.plannedDays.length;
            const hours = assignedDays > 0 ? (schedule.monthlyGoal || 0) / assignedDays : 0;
            items.push({ subject: sub.title, hours });
+
+           // Update Stats
+           if(stats[sub.id]) {
+             stats[sub.id].count += 1;
+             stats[sub.id].totalHours += hours;
+           }
         }
       });
       
@@ -60,7 +73,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
       }
     });
 
-    return dailyData;
+    return { dailyData, subjectStats: Object.values(stats).filter(s => s.count > 0).sort((a,b) => b.totalHours - a.totalHours) };
   }, [monthId, subjects, year, month]);
 
   // Group by week for the Overview
@@ -113,8 +126,8 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                  <FileText className="w-5 h-5 text-indigo-500" />
                  Resumo do Planejamento
               </h3>
-              <p className="text-sm text-zinc-500">
-                Visão geral da distribuição salva para {MONTH_NAMES[month - 1]}.
+              <p className="text-sm text-zinc-500 capitalize">
+                {MONTH_NAMES[month - 1]} {year}
               </p>
            </div>
            <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
@@ -142,7 +155,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                    {d.subjects.map((sub, j) => (
-                                      <span key={j} className="text-[10px] bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-zinc-700 truncate max-w-full">
+                                      <span key={j} className="text-[10px] bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-zinc-700 truncate max-w-full shadow-sm">
                                          {sub}
                                       </span>
                                    ))}
@@ -156,42 +169,75 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                </div>
             </div>
 
-            {/* B. Daily Study Distribution Table */}
-            <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
-               <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
-                  <Table2 className="w-4 h-4 text-zinc-400" />
-                  Lista Diária de Estudos
-               </h4>
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left border-collapse">
-                   <thead>
-                     <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                       <th className="py-2 px-3">Data</th>
-                       <th className="py-2 px-3">Matéria</th>
-                       <th className="py-2 px-3 text-right">Horas Est.</th>
-                     </tr>
-                   </thead>
-                   <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
-                     {summaryData.length === 0 ? (
-                       <tr><td colSpan={3} className="py-4 text-center text-zinc-400 italic">Sem dados</td></tr>
-                     ) : (
-                       summaryData.flatMap((day) => 
-                         day.items.map((item, idx) => (
-                           <tr key={`${formatDate(day.date)}-${idx}`} className="hover:bg-zinc-50 transition-colors">
-                             <td className="py-1.5 px-3 font-medium text-zinc-900 whitespace-nowrap">
-                               {idx === 0 ? format(day.date, "dd/MM/yyyy") : ""}
-                             </td>
-                             <td className="py-1.5 px-3">{item.subject}</td>
-                             <td className="py-1.5 px-3 text-right font-mono text-zinc-500">
-                               {item.hours > 0 ? item.hours.toFixed(1) + 'h' : '-'}
-                             </td>
-                           </tr>
-                         ))
-                       )
-                     )}
-                   </tbody>
-                 </table>
-               </div>
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* B. Daily Study Distribution Table */}
+                <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
+                  <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                      <Table2 className="w-4 h-4 text-zinc-400" />
+                      Cronograma Detalhado
+                  </h4>
+                  <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-zinc-200">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-white shadow-sm z-10">
+                        <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                          <th className="py-2 px-3">Data</th>
+                          <th className="py-2 px-3">Matéria</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
+                        {dailyData.length === 0 ? (
+                          <tr><td colSpan={2} className="py-4 text-center text-zinc-400 italic">Sem dados</td></tr>
+                        ) : (
+                          dailyData.flatMap((day) => 
+                            day.items.map((item, idx) => (
+                              <tr key={`${formatDate(day.date)}-${idx}`} className="hover:bg-zinc-50 transition-colors">
+                                <td className="py-1.5 px-3 font-medium text-zinc-900 whitespace-nowrap align-top">
+                                  {idx === 0 ? format(day.date, "dd/MM", { locale: ptBR }) : ""}
+                                </td>
+                                <td className="py-1.5 px-3">{item.subject}</td>
+                              </tr>
+                            ))
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* C. Frequency Stats */}
+                <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
+                   <h4 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                      <PieChart className="w-4 h-4 text-zinc-400" />
+                      Frequência das Matérias
+                   </h4>
+                   <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-zinc-200">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-white shadow-sm z-10">
+                          <tr className="border-b border-zinc-100 text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                            <th className="py-2 px-3">Matéria</th>
+                            <th className="py-2 px-3 text-center">Repetições</th>
+                            <th className="py-2 px-3 text-right">Horas Est.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-xs text-zinc-700 divide-y divide-zinc-50">
+                          {subjectStats.map((stat, idx) => (
+                             <tr key={idx} className="hover:bg-zinc-50">
+                                <td className="py-2 px-3 font-medium">{stat.title}</td>
+                                <td className="py-2 px-3 text-center">
+                                   <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
+                                      {stat.count}x
+                                   </span>
+                                </td>
+                                <td className="py-2 px-3 text-right text-zinc-500">{stat.totalHours.toFixed(1)}h</td>
+                             </tr>
+                          ))}
+                          {subjectStats.length === 0 && (
+                             <tr><td colSpan={3} className="py-4 text-center text-zinc-400">Nenhuma distribuição encontrada.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                   </div>
+                </div>
             </div>
         </div>
         
@@ -239,107 +285,131 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
     return subjects.reduce((acc, s) => acc + (s.schedules?.[monthId]?.monthlyGoal || 0), 0);
   }, [subjects, monthId]);
 
-  // Generation Logic
+  // Generation Logic (Weekly Bucket Distribution)
   const handleGenerate = () => {
     const newDist: Record<string, string[]> = {};
     const validSubjects = subjects.filter(s => (s.schedules?.[monthId]?.monthlyGoal || 0) > 0);
     
-    if (availableDates.length === 0 || validSubjects.length === 0) {
-      setDistribution({});
-      setStep('preview');
-      return;
-    }
-
     // Initialize map
     monthDates.forEach(d => {
       newDist[formatDate(d)] = [];
     });
-
-    // 1. Calculate Total Slots Available in the grid
-    const totalSlotsInGrid = availableDates.length * subjectsPerDay;
     
-    // 2. Prepare the Priority Queue
-    // We calculate how many slots each subject *deserves* based on their hours relative to the total hours.
-    const distributionQueue = validSubjects.map(s => {
-       const goal = s.schedules?.[monthId]?.monthlyGoal || 0;
-       
-       // Calculate strictly proportional share
-       const ratio = totalGoalHours > 0 ? goal / totalGoalHours : 0;
-       
-       // Determine number of slots. 
-       // We cap it at availableDates.length because a subject can only appear ONCE per day.
-       // We ensure at least 1 slot if it has hours.
-       let targetSlots = Math.round(ratio * totalSlotsInGrid);
-       if (targetSlots === 0 && goal > 0) targetSlots = 1;
-       if (targetSlots > availableDates.length) targetSlots = availableDates.length;
+    if (availableDates.length === 0 || validSubjects.length === 0) {
+      setDistribution(newDist);
+      setStep('preview');
+      return;
+    }
 
-       return {
-          id: s.id,
-          targetSlots,
-          goal
-       };
+    // 1. Group available dates by week
+    const weeks: Date[][] = [];
+    let currentWeek: Date[] = [];
+    
+    // Need to sort available dates to ensure chronological order
+    const sortedDates = [...availableDates].sort((a,b) => a.getTime() - b.getTime());
+
+    if (sortedDates.length > 0) {
+        let lastDate = sortedDates[0];
+        currentWeek.push(lastDate);
+        
+        for (let i = 1; i < sortedDates.length; i++) {
+            const date = sortedDates[i];
+            if (isSameWeek(date, lastDate, { weekStartsOn: 0 })) {
+                currentWeek.push(date);
+            } else {
+                weeks.push(currentWeek);
+                currentWeek = [date];
+            }
+            lastDate = date;
+        }
+        if (currentWeek.length > 0) weeks.push(currentWeek);
+    }
+
+    const totalSlotsInMonth = availableDates.length * subjectsPerDay;
+
+    // 2. Calculate total sessions needed per subject
+    const subjectAllocations = validSubjects.map(s => {
+        const goal = s.schedules?.[monthId]?.monthlyGoal || 0;
+        const ratio = totalGoalHours > 0 ? goal / totalGoalHours : 0;
+        // Ensure at least 1 slot if goal > 0
+        let targetSlots = Math.max(1, Math.round(ratio * totalSlotsInMonth));
+        // Cap at total available days
+        targetSlots = Math.min(targetSlots, availableDates.length);
+        
+        return {
+            id: s.id,
+            totalNeeded: targetSlots,
+            goal
+        };
     });
 
-    // 3. Sort by "Big Rocks First"
-    // Subjects with more slots (more hours) get placed first to ensure they fit.
-    distributionQueue.sort((a, b) => b.targetSlots - a.targetSlots);
+    // 3. Distribute sessions into weeks
+    const weekQueues: string[][] = weeks.map(() => []);
 
-    // 4. Distribute using Interval/Stride approach to ensure spacing
-    distributionQueue.forEach((sub, index) => {
-      if (sub.targetSlots <= 0) return;
-      
-      // The stride is the ideal gap between study sessions for this subject
-      const interval = availableDates.length / sub.targetSlots;
-      
-      // Shift starting position slightly for different subjects to avoid Day 1 pile-up
-      const startOffset = index % Math.floor(interval || 1); 
+    subjectAllocations.forEach(sub => {
+        // Distribute sub.totalNeeded across weeks.length buckets
+        const basePerWeek = Math.floor(sub.totalNeeded / weeks.length);
+        let remainder = sub.totalNeeded % weeks.length;
+        
+        for (let w = 0; w < weeks.length; w++) {
+            let count = basePerWeek;
+            if (remainder > 0) {
+                count++;
+                remainder--;
+            }
+            // Add subject ID 'count' times to this week's queue
+            for (let c = 0; c < count; c++) {
+                weekQueues[w].push(sub.id);
+            }
+        }
+    });
 
-      for (let i = 0; i < sub.targetSlots; i++) {
-          // Ideally we want to place it at:
-          let idealIndex = Math.floor((i * interval) + startOffset) % availableDates.length;
-          
-          let bestDateStr = "";
-          let placed = false;
+    // 4. Assign from queues to days within each week
+    weeks.forEach((weekDates, wIndex) => {
+        const queue = weekQueues[wIndex];
+        // Shuffle queue slightly to randomize daily placement within the week
+        // or prioritize big ones? Let's shuffle for variety.
+        queue.sort(() => Math.random() - 0.5);
 
-          // Check if ideal date is valid
-          let dateStr = formatDate(availableDates[idealIndex]);
-          
-          if (newDist[dateStr].length < subjectsPerDay && !newDist[dateStr].includes(sub.id)) {
-             bestDateStr = dateStr;
-             placed = true;
-          } else {
-             // Collision: Find the NEAREST AVAILABLE day that isn't full and doesn't have this subject
-             // We prioritize days with fewer subjects to balance the load.
-             let bestCandidateIndex = -1;
-             let minLoad = Infinity;
+        // Try to place each item in the queue into a day in this week
+        queue.forEach(subId => {
+            // Find a day in this week that:
+            // a) Has < subjectsPerDay
+            // b) Doesn't already have this subject
+            // Preference: Day with fewest subjects so far (load balancing)
+            
+            const validDays = weekDates.filter(d => {
+                const dStr = formatDate(d);
+                return newDist[dStr].length < subjectsPerDay && !newDist[dStr].includes(subId);
+            });
 
-             // Scan all available dates
-             for (let j = 0; j < availableDates.length; j++) {
-                const scanStr = formatDate(availableDates[j]);
-                const currentLoad = newDist[scanStr].length;
+            if (validDays.length > 0) {
+                // Sort by current load (asc)
+                validDays.sort((a, b) => {
+                    const loadA = newDist[formatDate(a)].length;
+                    const loadB = newDist[formatDate(b)].length;
+                    return loadA - loadB;
+                });
                 
-                // Must not be full, must not already have this subject
-                if (currentLoad < subjectsPerDay && !newDist[scanStr].includes(sub.id)) {
-                   // Calculate distance from ideal index to keep distribution somewhat regular
-                   // We prefer closer days, but empty days are also good.
-                   // Simple heuristic: pick the emptiest day.
-                   if (currentLoad < minLoad) {
-                      minLoad = currentLoad;
-                      bestCandidateIndex = j;
-                   }
+                // Pick the best day
+                const bestDay = validDays[0];
+                newDist[formatDate(bestDay)].push(subId);
+            } else {
+                // Cannot place in this week (week full or subject collision on all days)
+                // Try to spill over to next week if possible?
+                // For now, simpler to just drop or force into emptiest day ignoring collision (but we want to avoid duplicate subject per day)
+                // Let's try to find ANY day in the month that fits
+                // Fallback:
+                const anyValidDay = sortedDates.find(d => {
+                     const dStr = formatDate(d);
+                     return newDist[dStr].length < subjectsPerDay && !newDist[dStr].includes(subId);
+                });
+                
+                if (anyValidDay) {
+                    newDist[formatDate(anyValidDay)].push(subId);
                 }
-             }
-
-             if (bestCandidateIndex !== -1) {
-                bestDateStr = formatDate(availableDates[bestCandidateIndex]);
-                placed = true;
-             }
-          }
-
-          if (placed && bestDateStr) {
-             newDist[bestDateStr].push(sub.id);
-          }
-      }
+            }
+        });
     });
 
     setDistribution(newDist);
