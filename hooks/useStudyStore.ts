@@ -39,7 +39,7 @@ interface StudyState {
   // Multi-Month Scheduling Actions
   toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
   updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
-  toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
+  toggleSubjectPlannedDay: (subjectId: string, monthStr, dateStr: string) => void;
   generateMonthSchedule: (subjectId: string, monthStr: string, config: { hoursPerWeek: number, preferredDays: number[] }) => void;
   
   deleteSubject: (id: string) => void;
@@ -110,6 +110,7 @@ export const useStudyStore = create<StudyState>()(
         shortBreakDuration: 5,
         longBreakDuration: 15,
         monthlyGoalHours: 40,
+        dailyStudyHours: 4,
         userName: '',
         finalGoal: 'Aprovação na Residência',
         healthDegree: 'Medicine',

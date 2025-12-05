@@ -3,10 +3,8 @@ import React, { useState, useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Calendar, Plus, X, ArrowRight, X as CloseIcon, ChevronRight, Clock, 
-  Activity, CheckCircle2, List, LayoutGrid, Maximize2, 
-  Copy, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
-  FileText
+  Calendar, Plus, X, ArrowRight, Wand2, RefreshCw, Save, Settings2, CalendarDays, Trash2, ArrowLeft,
+  FileText, Clock, Activity, Copy, Hourglass
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -26,10 +24,11 @@ const IMPORTANCE_CONFIG: Record<ImportanceLevel, { label: string, color: string,
 interface MonthlySummaryModalProps {
   monthId: string;
   subjects: Subject[];
+  dailyStudyHours: number;
   onClose: () => void;
 }
 
-const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subjects, onClose }) => {
+const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subjects, dailyStudyHours, onClose }) => {
   const [year, month] = monthId.split('-').map(Number);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(year, month - 1, 1));
   
@@ -63,6 +62,27 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
   }, [year, month]);
 
   const selectedDateSubjects = scheduleMap[formatDate(selectedDate)] || [];
+
+  // Time Calculation Logic
+  const calculatedTimes = useMemo(() => {
+     if (selectedDateSubjects.length === 0) return {};
+     
+     // Calculate total weight for the day
+     const totalWeight = selectedDateSubjects.reduce((acc, sub) => {
+        return acc + IMPORTANCE_CONFIG[sub.importance || 'medium'].weight;
+     }, 0);
+
+     // Calculate time per subject (in minutes)
+     const times: Record<string, number> = {};
+     selectedDateSubjects.forEach(sub => {
+        const weight = IMPORTANCE_CONFIG[sub.importance || 'medium'].weight;
+        const ratio = weight / totalWeight;
+        const totalMinutes = dailyStudyHours * 60;
+        times[sub.id] = Math.round(totalMinutes * ratio);
+     });
+
+     return times;
+  }, [selectedDateSubjects, dailyStudyHours]);
 
   // Stats Calculation
   const stats = useMemo(() => {
@@ -169,7 +189,7 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                 {/* Mini Stats Footer */}
                 <div className="p-4 bg-white border-t border-zinc-100 flex gap-6 text-xs text-zinc-500 shrink-0">
                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500" /> Alta Prioridade: <strong className="text-zinc-900">{stats.byImportance.high}</strong>
+                      <div className="w-2 h-2 rounded-full bg-red-500" /> Alta: <strong className="text-zinc-900">{stats.byImportance.high}</strong>
                    </div>
                    <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-orange-500" /> Média: <strong className="text-zinc-900">{stats.byImportance.medium}</strong>
@@ -187,9 +207,14 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                   <h2 className="text-2xl font-bold text-zinc-900 capitalize">
                      {format(selectedDate, "EEEE, dd", { locale: ptBR })}
                   </h2>
-                  <div className="mt-2 flex items-center gap-2">
-                     <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                  <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600">
+                     <span className="font-medium bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md">
                         {selectedDateSubjects.length} matérias
+                     </span>
+                     <span>•</span>
+                     <span className="flex items-center gap-1">
+                        <Hourglass className="w-3.5 h-3.5" />
+                        {dailyStudyHours}h previstos
                      </span>
                   </div>
                </div>
@@ -205,6 +230,10 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                   ) : (
                      selectedDateSubjects.map(sub => {
                         const imp = IMPORTANCE_CONFIG[sub.importance || 'medium'];
+                        const minutes = calculatedTimes[sub.id] || 0;
+                        const hoursDisplay = Math.floor(minutes / 60);
+                        const minsDisplay = minutes % 60;
+                        
                         return (
                            <motion.div 
                               layout
@@ -212,14 +241,22 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                               className={cn("p-4 rounded-xl border bg-white shadow-sm flex flex-col gap-2", imp.border)}
                            >
                               <div className="flex justify-between items-start">
-                                 <h4 className="font-bold text-zinc-900 text-sm leading-tight">{sub.title}</h4>
-                                 <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide", imp.bg, imp.color)}>
+                                 <h4 className="font-bold text-zinc-900 text-sm leading-tight flex-1 mr-2">{sub.title}</h4>
+                                 <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0", imp.bg, imp.color)}>
                                     {imp.label}
                                  </span>
                               </div>
                               
+                              <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 mt-1">
+                                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                                  <span>
+                                     {hoursDisplay > 0 ? `${hoursDisplay}h ` : ''}
+                                     {minsDisplay}min
+                                  </span>
+                              </div>
+                              
                               {sub.subtopics.length > 0 && (
-                                 <div className="mt-1 pt-2 border-t border-zinc-50">
+                                 <div className="mt-2 pt-2 border-t border-zinc-50">
                                     <p className="text-[10px] text-zinc-400 uppercase font-bold mb-1">Foco Sugerido:</p>
                                     <div className="flex flex-wrap gap-1">
                                        {sub.subtopics.slice(0, 3).map(t => (
@@ -227,9 +264,6 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
                                              {t.title}
                                           </span>
                                        ))}
-                                       {sub.subtopics.length > 3 && (
-                                          <span className="text-[10px] text-zinc-400 px-1">+{sub.subtopics.length - 3}</span>
-                                       )}
                                     </div>
                                  </div>
                               )}
@@ -245,22 +279,22 @@ const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({ monthId, subj
   );
 };
 
-
 // --- Auto Distribution Modal ---
 
 interface AutoDistributeModalProps {
   monthId: string;
   subjects: Subject[];
+  initialDailyHours: number;
   onClose: () => void;
-  onSave: (distribution: Record<string, string[]>, monthlyGoals: Record<string, number>) => void;
+  onSave: (distribution: Record<string, string[]>, monthlyGoals: Record<string, number>, dailyHours: number) => void;
 }
 
-const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subjects, onClose, onSave }) => {
+const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subjects, initialDailyHours, onClose, onSave }) => {
   const [step, setStep] = useState<'config' | 'preview'>('config');
   
   // Config State
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri
-  const [dailyHours, setDailyHours] = useState(4);
+  const [dailyHours, setDailyHours] = useState(initialDailyHours || 4);
   
   // Preview State
   const [distribution, setDistribution] = useState<Record<string, string[]>>({}); // DateStr -> SubjectIDs[]
@@ -391,7 +425,7 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
       });
     });
 
-    onSave(subjectUpdates, calculatedGoals);
+    onSave(subjectUpdates, calculatedGoals, dailyHours);
     onClose();
   };
 
@@ -777,6 +811,10 @@ const ScheduleTab = () => {
     updateSubject,
     updateSubjectSchedule,
     toggleSubjectPlannedDay,
+    addSubject,
+    updateSettings,
+    settings,
+    months: registeredMonths // This are the "Exam Groups" (e.g. "Residency USP")
   } = useStudyStore();
 
   const [expandedMonthId, setExpandedMonthId] = useState<string | null>(null);
@@ -785,14 +823,41 @@ const ScheduleTab = () => {
   const [monthToDuplicate, setMonthToDuplicate] = useState<string | null>(null);
   const [targetMonthForDuplication, setTargetMonthForDuplication] = useState("");
   
-  // New state for Summary Modal
+  // States for Add Month
+  const [addMonthModalOpen, setAddMonthModalOpen] = useState(false);
+  const [newMonthStr, setNewMonthStr] = useState("");
+
+  // States for Quick Add Subject
+  const [quickAddSubjectName, setQuickAddSubjectName] = useState("");
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  
   const [showSummaryModal, setShowSummaryModal] = useState(false);
 
-  const handleAddMonth = () => {
-     const today = new Date();
-     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-     const mStr = formatDate(nextMonth).slice(0, 7);
-     addActiveScheduleMonth(mStr);
+  const confirmAddMonth = () => {
+     if (newMonthStr) {
+        addActiveScheduleMonth(newMonthStr);
+        setAddMonthModalOpen(false);
+        setNewMonthStr("");
+     }
+  };
+
+  const confirmQuickAddSubject = () => {
+     if (expandedMonthId && quickAddSubjectName.trim()) {
+        // We need to link this new subject to a "Month Group".
+        // If we are in "Schedule View", we might not have a specific exam group.
+        // For simplicity, we find the first available exam group or create a default one if needed.
+        // Better UX: Just link to the first one for now or let user choose.
+        // Assuming user has at least one Exam Group created (which is default state).
+        const defaultGroupId = registeredMonths[0]?.id;
+        
+        if (defaultGroupId) {
+           addSubject(quickAddSubjectName, defaultGroupId);
+           setQuickAddSubjectName("");
+           setQuickAddModalOpen(false);
+        } else {
+           alert("Crie primeiro um Grupo de Assuntos na aba 'Assuntos'.");
+        }
+     }
   };
 
   const handleDuplicateClick = (sourceId: string) => {
@@ -809,9 +874,12 @@ const ScheduleTab = () => {
     }
   };
 
-  const handleSaveDistribution = (subjectUpdates: Record<string, string[]>, monthlyGoals: Record<string, number>) => {
+  const handleSaveDistribution = (subjectUpdates: Record<string, string[]>, monthlyGoals: Record<string, number>, dailyHours: number) => {
     if (!expandedMonthId) return;
     
+    // Save daily hours preference globally
+    updateSettings({ dailyStudyHours: dailyHours });
+
     // Save dates
     Object.entries(subjectUpdates).forEach(([subjectId, dates]) => {
       // Also update the monthly goal for that subject
@@ -833,7 +901,7 @@ const ScheduleTab = () => {
                    <h2 className="text-2xl font-bold text-zinc-900">Cronogramas</h2>
                    <p className="text-zinc-500 text-sm">Gerencie seu planejamento mensal.</p>
                 </div>
-                <Button onClick={handleAddMonth} className="bg-zinc-900 text-white rounded-full">
+                <Button onClick={() => setAddMonthModalOpen(true)} className="bg-zinc-900 text-white rounded-full">
                     <Plus className="w-4 h-4 mr-2" /> Novo Mês
                 </Button>
             </div>
@@ -846,13 +914,13 @@ const ScheduleTab = () => {
                       <motion.div 
                         key={monthId}
                         whileHover={{ y: -4 }}
-                        className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group"
+                        className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group relative"
                       >
                          <div className="flex justify-between items-start mb-4">
                              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-bold text-lg">
                                  {m}
                              </div>
-                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <div className="flex gap-1">
                                 <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => handleDuplicateClick(monthId)}>
                                     <Copy className="w-4 h-4 text-zinc-500" />
                                 </Button>
@@ -873,7 +941,7 @@ const ScheduleTab = () => {
          </>
       ) : (
          <div className="space-y-6">
-             <div className="flex items-center justify-between pb-6 border-b border-zinc-100">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-100">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => setExpandedMonthId(null)} className="rounded-full hover:bg-zinc-100">
                         <ArrowLeft className="w-6 h-6 text-zinc-500" />
@@ -885,9 +953,12 @@ const ScheduleTab = () => {
                         <p className="text-zinc-500 text-sm">Visão detalhada do mês</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2">
+                   <Button variant="outline" className="rounded-xl" onClick={() => setQuickAddModalOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" /> Novo Assunto
+                   </Button>
                    <Button variant="outline" className="rounded-xl hidden sm:flex" onClick={() => setIsAutoDistributing(true)}>
-                      <Wand2 className="w-4 h-4 mr-2 text-indigo-500" /> Distribuição Automática
+                      <Wand2 className="w-4 h-4 mr-2 text-indigo-500" /> Auto-Distribuição
                    </Button>
                    <Button variant="ghost" className="rounded-xl hidden sm:flex" onClick={() => setShowSummaryModal(true)}>
                       <FileText className="w-4 h-4 mr-2 text-zinc-500" /> Ver Resumo
@@ -907,15 +978,89 @@ const ScheduleTab = () => {
                         onTogglePlannedDay={toggleSubjectPlannedDay}
                     />
                  ))}
+                 
+                 {subjects.length === 0 && (
+                     <div className="col-span-full py-12 flex flex-col items-center justify-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-3xl">
+                         <p className="mb-4">Nenhum assunto encontrado.</p>
+                         <Button onClick={() => setQuickAddModalOpen(true)}>Criar Primeiro Assunto</Button>
+                     </div>
+                 )}
              </div>
          </div>
       )}
+
+      {/* Add Month Modal */}
+      <AnimatePresence>
+        {addMonthModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+            onClick={() => setAddMonthModalOpen(false)}
+          >
+             <motion.div 
+               initial={{ scale: 0.95 }}
+               animate={{ scale: 1 }}
+               className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+               onClick={e => e.stopPropagation()}
+             >
+                <h3 className="font-bold text-lg mb-4">Adicionar Mês ao Cronograma</h3>
+                <Input 
+                   type="month" 
+                   value={newMonthStr} 
+                   onChange={(e) => setNewMonthStr(e.target.value)}
+                   className="mb-6 h-12 text-lg"
+                />
+                <div className="flex justify-end gap-2">
+                   <Button variant="ghost" onClick={() => setAddMonthModalOpen(false)}>Cancelar</Button>
+                   <Button onClick={confirmAddMonth} disabled={!newMonthStr}>Adicionar</Button>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Quick Add Subject Modal */}
+      <AnimatePresence>
+        {quickAddModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4"
+            onClick={() => setQuickAddModalOpen(false)}
+          >
+             <motion.div 
+               initial={{ scale: 0.95 }}
+               animate={{ scale: 1 }}
+               className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+               onClick={e => e.stopPropagation()}
+             >
+                <h3 className="font-bold text-lg mb-4">Novo Assunto Rápido</h3>
+                <p className="text-xs text-zinc-500 mb-4">Será adicionado ao seu grupo de matérias padrão.</p>
+                <Input 
+                   value={quickAddSubjectName} 
+                   onChange={(e) => setQuickAddSubjectName(e.target.value)}
+                   placeholder="Nome da matéria (ex: Pediatria)"
+                   className="mb-6"
+                   autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                   <Button variant="ghost" onClick={() => setQuickAddModalOpen(false)}>Cancelar</Button>
+                   <Button onClick={confirmQuickAddSubject} disabled={!quickAddSubjectName.trim()}>Criar Assunto</Button>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Auto Distribute Modal */}
       {isAutoDistributing && expandedMonthId && (
           <AutoDistributeModal 
              monthId={expandedMonthId}
              subjects={subjects}
+             initialDailyHours={settings.dailyStudyHours}
              onClose={() => setIsAutoDistributing(false)}
              onSave={handleSaveDistribution}
           />
@@ -926,6 +1071,7 @@ const ScheduleTab = () => {
          <MonthlySummaryModal 
             monthId={expandedMonthId}
             subjects={subjects}
+            dailyStudyHours={settings.dailyStudyHours}
             onClose={() => setShowSummaryModal(false)}
          />
       )}

@@ -66,6 +66,7 @@ export interface Settings {
   shortBreakDuration: number; 
   longBreakDuration: number; 
   monthlyGoalHours: number;
+  dailyStudyHours: number; // New field for auto-distribution calc
   userName: string;
   finalGoal: string;
   healthDegree: HealthDegree; 
