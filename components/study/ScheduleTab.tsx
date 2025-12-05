@@ -255,41 +255,90 @@ const AutoDistributeModal: React.FC<AutoDistributeModalProps> = ({ monthId, subj
       newDist[formatDate(d)] = [];
     });
 
-    // Calculate slots
-    const totalSlots = availableDates.length * subjectsPerDay;
+    // 1. Calculate Total Slots Available in the grid
+    const totalSlotsInGrid = availableDates.length * subjectsPerDay;
     
-    // Assign slots per subject proportional to goal
-    const subjectSlots = validSubjects.map(s => {
+    // 2. Prepare the Priority Queue
+    // We calculate how many slots each subject *deserves* based on their hours relative to the total hours.
+    const distributionQueue = validSubjects.map(s => {
        const goal = s.schedules?.[monthId]?.monthlyGoal || 0;
-       const share = goal / totalGoalHours;
-       const slots = Math.round(share * totalSlots);
-       return { id: s.id, slots, goal };
+       
+       // Calculate strictly proportional share
+       const ratio = totalGoalHours > 0 ? goal / totalGoalHours : 0;
+       
+       // Determine number of slots. 
+       // We cap it at availableDates.length because a subject can only appear ONCE per day.
+       // We ensure at least 1 slot if it has hours.
+       let targetSlots = Math.round(ratio * totalSlotsInGrid);
+       if (targetSlots === 0 && goal > 0) targetSlots = 1;
+       if (targetSlots > availableDates.length) targetSlots = availableDates.length;
+
+       return {
+          id: s.id,
+          targetSlots,
+          goal
+       };
     });
 
-    // Sort by most slots to distribute them first
-    subjectSlots.sort((a, b) => b.slots - a.slots);
+    // 3. Sort by "Big Rocks First"
+    // Subjects with more slots (more hours) get placed first to ensure they fit.
+    distributionQueue.sort((a, b) => b.targetSlots - a.targetSlots);
 
-    // Distribution Algorithm (Round Robin with Stride)
-    subjectSlots.forEach((sub, index) => {
-      if (sub.slots <= 0) return;
+    // 4. Distribute using Interval/Stride approach to ensure spacing
+    distributionQueue.forEach((sub, index) => {
+      if (sub.targetSlots <= 0) return;
       
-      const stride = Math.max(1, availableDates.length / sub.slots);
-      let currentPos = index % availableDates.length;
-      let assignedCount = 0;
-      let attempts = 0;
+      // The stride is the ideal gap between study sessions for this subject
+      const interval = availableDates.length / sub.targetSlots;
+      
+      // Shift starting position slightly for different subjects to avoid Day 1 pile-up
+      const startOffset = index % Math.floor(interval || 1); 
 
-      while (assignedCount < sub.slots && attempts < availableDates.length * 2) {
-         const dateIdx = Math.floor(currentPos) % availableDates.length;
-         const dateStr = formatDate(availableDates[dateIdx]);
+      for (let i = 0; i < sub.targetSlots; i++) {
+          // Ideally we want to place it at:
+          let idealIndex = Math.floor((i * interval) + startOffset) % availableDates.length;
+          
+          let bestDateStr = "";
+          let placed = false;
 
-         if (newDist[dateStr].length < subjectsPerDay) {
-            if (!newDist[dateStr].includes(sub.id)) {
-                newDist[dateStr].push(sub.id);
-                assignedCount++;
-            }
-         }
-         currentPos += stride;
-         attempts++;
+          // Check if ideal date is valid
+          let dateStr = formatDate(availableDates[idealIndex]);
+          
+          if (newDist[dateStr].length < subjectsPerDay && !newDist[dateStr].includes(sub.id)) {
+             bestDateStr = dateStr;
+             placed = true;
+          } else {
+             // Collision: Find the NEAREST AVAILABLE day that isn't full and doesn't have this subject
+             // We prioritize days with fewer subjects to balance the load.
+             let bestCandidateIndex = -1;
+             let minLoad = Infinity;
+
+             // Scan all available dates
+             for (let j = 0; j < availableDates.length; j++) {
+                const scanStr = formatDate(availableDates[j]);
+                const currentLoad = newDist[scanStr].length;
+                
+                // Must not be full, must not already have this subject
+                if (currentLoad < subjectsPerDay && !newDist[scanStr].includes(sub.id)) {
+                   // Calculate distance from ideal index to keep distribution somewhat regular
+                   // We prefer closer days, but empty days are also good.
+                   // Simple heuristic: pick the emptiest day.
+                   if (currentLoad < minLoad) {
+                      minLoad = currentLoad;
+                      bestCandidateIndex = j;
+                   }
+                }
+             }
+
+             if (bestCandidateIndex !== -1) {
+                bestDateStr = formatDate(availableDates[bestCandidateIndex]);
+                placed = true;
+             }
+          }
+
+          if (placed && bestDateStr) {
+             newDist[bestDateStr].push(sub.id);
+          }
       }
     });
 
