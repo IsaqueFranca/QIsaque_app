@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { Month } from "../../types";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, Check, X, FileText, AlertCircle, ArrowRight, Sparkles, Loader2, Wand2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, FileText, AlertCircle, ArrowRight, Sparkles, Loader2, Wand2, Copy } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
@@ -38,7 +38,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
   const [aiStep, setAiStep] = useState<'input' | 'review'>('input');
   const [manualDraftInput, setManualDraftInput] = useState("");
 
-  const { addMonth, editMonth, deleteMonth, getSubjectsByMonthId, addSubject } = useStudyStore();
+  const { addMonth, editMonth, deleteMonth, duplicateMonth, getSubjectsByMonthId, addSubject } = useStudyStore();
 
   const handleAddMonth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,7 +227,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                         )}
                      </div>
                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                        <Button
+                         <Button
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700"
@@ -235,6 +235,15 @@ const MonthGrid: React.FC<MonthGridProps> = ({ months, onSelectMonth }) => {
                           title="Importar via IA"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 rounded-full hover:bg-zinc-100"
+                          onClick={(e) => { e.stopPropagation(); duplicateMonth(month.id); }}
+                          title="Duplicar"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-zinc-500" />
                         </Button>
                         <Button
                           size="icon"

@@ -5,7 +5,6 @@ import { Subject, Session, Settings, Subtopic, Month, User, SubjectSchedule } fr
 import { generateId, formatDate, calculateStreaks } from '../lib/utils';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { eachDayOfInterval, getDay } from 'date-fns';
 
 interface StudyState {
   user: User | null;
@@ -26,11 +25,11 @@ interface StudyState {
   addMonth: (name: string, year?: number) => void;
   editMonth: (id: string, name: string) => void;
   deleteMonth: (id: string) => void;
+  duplicateMonth: (id: string) => void;
 
   // Schedule Actions
   addActiveScheduleMonth: (monthStr: string) => void;
   removeActiveScheduleMonth: (monthStr: string) => void;
-  duplicateMonthSchedule: (sourceMonthId: string, targetMonthId: string) => void;
 
   // Subject Actions
   addSubject: (title: string, monthId: string, tag?: string) => string;
@@ -39,8 +38,7 @@ interface StudyState {
   // Multi-Month Scheduling Actions
   toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
   updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
-  toggleSubjectPlannedDay: (subjectId: string, monthStr, dateStr: string) => void;
-  generateMonthSchedule: (subjectId: string, monthStr: string, config: { hoursPerWeek: number, preferredDays: number[] }) => void;
+  toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
   
   deleteSubject: (id: string) => void;
   
@@ -110,7 +108,6 @@ export const useStudyStore = create<StudyState>()(
         shortBreakDuration: 5,
         longBreakDuration: 15,
         monthlyGoalHours: 40,
-        dailyStudyHours: 4,
         userName: '',
         finalGoal: 'Aprovação na Residência',
         healthDegree: 'Medicine',
@@ -170,6 +167,36 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
+      duplicateMonth: (id) => {
+        const state = get();
+        const originalMonth = state.months.find(m => m.id === id);
+        if (!originalMonth) return;
+
+        const newMonthId = generateId();
+        const newMonth = {
+          ...originalMonth,
+          id: newMonthId,
+          name: `${originalMonth.name} (Cópia)`,
+          year: originalMonth.year
+        };
+
+        const originalSubjects = state.subjects.filter(s => s.monthId === id);
+        const newSubjects = originalSubjects.map(sub => ({
+          ...sub,
+          id: generateId(),
+          monthId: newMonthId,
+          studiedDates: [], // Reset execution data
+          schedules: {}, // Reset planning data
+          subtopics: sub.subtopics.map(st => ({ ...st, id: generateId(), isCompleted: false })) // Reset subtopic completion
+        }));
+
+        set({
+          months: [...state.months, newMonth],
+          subjects: [...state.subjects, ...newSubjects]
+        });
+        saveToCloud(get());
+      },
+
       // Schedule Actions
       addActiveScheduleMonth: (monthStr) => {
         set((state) => {
@@ -187,47 +214,6 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      duplicateMonthSchedule: (sourceMonthId, targetMonthId) => {
-        set((state) => {
-          // 1. Ensure target month is in active list
-          const newActiveMonths = state.activeScheduleMonths.includes(targetMonthId)
-            ? state.activeScheduleMonths
-            : [...state.activeScheduleMonths, targetMonthId].sort();
-
-          // 2. Iterate subjects and copy schedule data
-          const newSubjects = state.subjects.map(subject => {
-            const sourceSchedule = subject.schedules?.[sourceMonthId];
-            
-            // If the subject has no schedule in the source month, skip it
-            if (!sourceSchedule) return subject;
-
-            // Create new schedule object
-            // Note: We do NOT copy plannedDays because dates don't align 1:1 between months.
-            // We DO copy goals and notes.
-            const newSchedule: SubjectSchedule = {
-              monthlyGoal: sourceSchedule.monthlyGoal,
-              notes: sourceSchedule.notes,
-              isCompleted: false, // Start fresh
-              plannedDays: [] // Start fresh
-            };
-
-            return {
-              ...subject,
-              schedules: {
-                ...subject.schedules,
-                [targetMonthId]: newSchedule
-              }
-            };
-          });
-
-          return {
-            activeScheduleMonths: newActiveMonths,
-            subjects: newSubjects
-          };
-        });
-        saveToCloud(get());
-      },
-
       // Subject Actions
       addSubject: (title, monthId, tag) => {
         const newId = generateId();
@@ -238,7 +224,6 @@ export const useStudyStore = create<StudyState>()(
             monthId,
             tag,
             color: 'bg-blue-500',
-            importance: 'medium', // Default
             subtopics: [],
             studiedDates: [],
             schedules: {} // Initialize empty schedule map
@@ -322,47 +307,6 @@ export const useStudyStore = create<StudyState>()(
                   plannedDays: isPlanned 
                     ? currentDays.filter(d => d !== dateStr) 
                     : [...currentDays, dateStr].sort()
-                }
-              }
-            };
-          })
-        }));
-        saveToCloud(get());
-      },
-
-      generateMonthSchedule: (subjectId, monthStr, config) => {
-        // Legacy support function kept for compatibility if needed, 
-        // but main logic moved to component for batch processing
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            
-            const [year, month] = monthStr.split('-').map(Number);
-            const start = new Date(year, month - 1, 1);
-            const end = new Date(year, month, 0);
-            
-            const allDays = eachDayOfInterval({ start, end });
-            const plannedDays = allDays
-                .filter(d => config.preferredDays.includes(getDay(d)))
-                .map(d => formatDate(d));
-            
-            const monthlyGoal = Math.round((allDays.length / 7) * config.hoursPerWeek);
-
-            const currentSchedule = s.schedules?.[monthStr] || {
-                monthlyGoal: 0, 
-                plannedDays: [], 
-                isCompleted: false, 
-                notes: '' 
-            };
-
-            return {
-              ...s,
-              schedules: {
-                ...s.schedules,
-                [monthStr]: {
-                  ...currentSchedule,
-                  plannedDays,
-                  monthlyGoal: monthlyGoal > 0 ? monthlyGoal : currentSchedule.monthlyGoal
                 }
               }
             };
