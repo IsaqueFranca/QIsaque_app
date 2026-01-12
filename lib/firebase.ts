@@ -1,4 +1,4 @@
-
+// Ensure initializeApp is correctly imported from the modular SDK entry point
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -20,6 +20,7 @@ let googleProvider: any = null;
 
 if (isConfigValid) {
   try {
+    // Initialize Firebase using the modular initialization function
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);

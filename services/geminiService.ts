@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 // A chave será obtida via process.env.API_KEY, que é injetada pelo vite.config.ts durante o build
@@ -10,12 +9,6 @@ const getAiClient = () => {
   }
   // Create a new GoogleGenAI instance right before making an API call to ensure it uses latest key
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
-// Helper to clean Markdown code blocks from JSON response
-const cleanJsonText = (text: string): string => {
-  if (!text) return "";
-  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 };
 
 export const generateSubtopicsForSubject = async (subjectTitle: string, healthDegree: string = 'Medicine'): Promise<string[]> => {
@@ -47,13 +40,14 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
               items: { type: Type.STRING },
             },
           },
+          required: ["subtopics"],
         },
       },
     });
 
     if (response.text) {
-        const cleanedText = cleanJsonText(response.text);
-        const json = JSON.parse(cleanedText);
+        // According to guidelines, for JSON responses we should trim the text and parse it directly
+        const json = JSON.parse(response.text.trim());
         return json.subtopics || [];
     }
     return [];
@@ -92,13 +86,14 @@ export const organizeSubjectsFromText = async (text: string): Promise<string[]> 
               items: { type: Type.STRING },
             },
           },
+          required: ["subjects"],
         },
       },
     });
 
     if (response.text) {
-      const cleanedText = cleanJsonText(response.text);
-      const json = JSON.parse(cleanedText);
+      // Direct parsing as responseMimeType is set to application/json
+      const json = JSON.parse(response.text.trim());
       return json.subjects || [];
     }
     return [];
