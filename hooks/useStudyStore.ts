@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Subject, Session, Settings, Subtopic, Month, User, SubjectSchedule } from '../types';
+import { Subject, Session, Settings, Month, User, SubjectSchedule } from '../types';
 import { generateId, formatDate, calculateStreaks } from '../lib/utils';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -12,70 +12,46 @@ interface StudyState {
   subjects: Subject[];
   sessions: Session[];
   settings: Settings;
-  activeScheduleMonths: string[]; // YYYY-MM
-  activeSubjectId: string | null; // For cross-tab navigation
-  
-  // New: Guest mode state
+  activeScheduleMonths: string[];
+  activeSubjectId: string | null;
   guestMode: boolean;
   setGuestMode: (mode: boolean) => void;
 
-  // User Actions
   setUser: (user: User | null) => void;
   loadFromCloud: (uid: string) => Promise<void>;
   
-  // Month Actions
   addMonth: (name: string, year?: number) => void;
   editMonth: (id: string, name: string) => void;
   deleteMonth: (id: string) => void;
   duplicateMonth: (id: string) => void;
 
-  // Schedule Actions
   addActiveScheduleMonth: (monthStr: string) => void;
   removeActiveScheduleMonth: (monthStr: string) => void;
 
-  // Subject Actions
   addSubject: (title: string, monthId: string, tag?: string) => string;
   updateSubject: (id: string, updates: Partial<Subject>) => void;
+  deleteSubject: (id: string) => void;
+  toggleSubtopic: (subjectId: string, subtopicId: string) => void;
   
-  // Multi-Month Scheduling Actions
   toggleSubjectInMonth: (subjectId: string, monthStr: string) => void;
   updateSubjectSchedule: (subjectId: string, monthStr: string, updates: Partial<SubjectSchedule>) => void;
   toggleSubjectPlannedDay: (subjectId: string, monthStr: string, dateStr: string) => void;
   
-  deleteSubject: (id: string) => void;
-  
-  // Subtopic Actions
-  addSubtopic: (subjectId: string, title: string) => void;
-  toggleSubtopic: (subjectId: string, subtopicId: string) => void;
-  deleteSubtopic: (subjectId: string, subtopicId: string) => void;
-  importSubtopics: (subjectId: string, titles: string[]) => void;
-
-  // Study Logic
-  toggleStudyDay: (subjectId: string, date: string) => void;
-  isStudiedToday: (subjectId: string) => boolean;
   setActiveSubjectId: (id: string | null) => void;
-
-  // Session Actions
   addSession: (session: Omit<Session, 'id'>) => void;
-  updateSessionStatus: (sessionId: string, status: 'completed' | 'incomplete') => void;
   deleteSession: (sessionId: string) => void;
-  
+  updateSessionStatus: (sessionId: string, status: 'completed' | 'incomplete') => void;
   updateSettings: (updates: Partial<Settings>) => void;
 
-  // Selectors
   getSubjectsByMonthId: (monthId: string) => Subject[];
   getSessionsByMonthId: (monthId: string) => Session[];
-  getTotalTimeByMonthId: (monthId: string) => number;
   getTimeBySubject: (subjectId: string) => number;
-  getSubjectProgress: (subjectId: string) => number;
   getStreakStats: () => { currentStreak: number; longestStreak: number; totalActiveDays: number; dayMap: Map<string, number> };
 }
 
-// Helper to debounce cloud saves
 let saveTimeout: ReturnType<typeof setTimeout>;
 const saveToCloud = (state: StudyState) => {
   if (!db || !state.user?.uid) return;
-  
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
@@ -88,7 +64,6 @@ const saveToCloud = (state: StudyState) => {
         lastUpdated: new Date().toISOString()
       };
       await setDoc(doc(db, "users", state.user!.uid), dataToSave, { merge: true });
-      console.log("Dados sincronizados com a nuvem.");
     } catch (e) {
       console.error("Erro ao sincronizar:", e);
     }
@@ -99,9 +74,7 @@ export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
       user: null,
-      months: [
-        { id: 'default-1', name: 'Residência USP', year: new Date().getFullYear() },
-      ],
+      months: [{ id: 'default-1', name: 'Geral', year: new Date().getFullYear() }],
       subjects: [],
       sessions: [],
       settings: {
@@ -110,13 +83,11 @@ export const useStudyStore = create<StudyState>()(
         longBreakDuration: 15,
         monthlyGoalHours: 40,
         userName: '',
-        finalGoal: 'Aprovação na Residência',
+        finalGoal: 'Foco no Estudo',
         healthDegree: 'Medicine',
       },
       activeScheduleMonths: [formatDate(new Date()).slice(0, 7)],
       activeSubjectId: null,
-
-      // Initialize guestMode
       guestMode: false,
       setGuestMode: (mode) => set({ guestMode: mode }),
 
@@ -127,7 +98,6 @@ export const useStudyStore = create<StudyState>()(
         try {
           const docRef = doc(db, "users", uid);
           const docSnap = await getDoc(docRef);
-          
           if (docSnap.exists()) {
             const data = docSnap.data();
             set((state) => ({
@@ -137,20 +107,13 @@ export const useStudyStore = create<StudyState>()(
               settings: data.settings || state.settings,
               activeScheduleMonths: data.activeScheduleMonths || state.activeScheduleMonths
             }));
-            console.log("Dados carregados da nuvem.");
           }
-        } catch (e) {
-          console.error("Erro ao carregar dados:", e);
-        }
+        } catch (e) { console.error(e); }
       },
 
       addMonth: (name, year) => {
         set((state) => ({
-          months: [...state.months, { 
-            id: generateId(), 
-            name,
-            year: year || new Date().getFullYear()
-          }]
+          months: [...state.months, { id: generateId(), name, year: year || new Date().getFullYear() }]
         }));
         saveToCloud(get());
       },
@@ -171,40 +134,33 @@ export const useStudyStore = create<StudyState>()(
       },
 
       duplicateMonth: (id) => {
-        const state = get();
-        const originalMonth = state.months.find(m => m.id === id);
-        if (!originalMonth) return;
-
+        const monthToDup = get().months.find(m => m.id === id);
+        if (!monthToDup) return;
+        
         const newMonthId = generateId();
-        const newMonth = {
-          ...originalMonth,
-          id: newMonthId,
-          name: `${originalMonth.name} (Cópia)`,
-          year: originalMonth.year
-        };
-
-        const originalSubjects = state.subjects.filter(s => s.monthId === id);
-        const newSubjects = originalSubjects.map(sub => ({
-          ...sub,
+        const newMonth = { ...monthToDup, id: newMonthId, name: `${monthToDup.name} (Cópia)` };
+        
+        const monthSubjects = get().subjects.filter(s => s.monthId === id);
+        const newSubjects = monthSubjects.map(s => ({
+          ...s,
           id: generateId(),
           monthId: newMonthId,
           studiedDates: [],
           schedules: {},
-          subtopics: sub.subtopics.map(st => ({ ...st, id: generateId(), isCompleted: false }))
+          subtopics: s.subtopics.map(st => ({ ...st, id: generateId() }))
         }));
 
-        set({
+        set((state) => ({
           months: [...state.months, newMonth],
           subjects: [...state.subjects, ...newSubjects]
-        });
+        }));
         saveToCloud(get());
       },
 
       addActiveScheduleMonth: (monthStr) => {
         set((state) => {
            if (state.activeScheduleMonths.includes(monthStr)) return state;
-           const newMonths = [...state.activeScheduleMonths, monthStr].sort();
-           return { activeScheduleMonths: newMonths };
+           return { activeScheduleMonths: [...state.activeScheduleMonths, monthStr].sort() };
         });
         saveToCloud(get());
       },
@@ -224,10 +180,10 @@ export const useStudyStore = create<StudyState>()(
             title,
             monthId,
             tag,
-            color: 'bg-blue-500',
-            subtopics: [],
+            color: 'bg-zinc-900',
             studiedDates: [],
-            schedules: {}
+            schedules: {},
+            subtopics: []
           }]
         }));
         saveToCloud(get());
@@ -241,94 +197,10 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      toggleSubjectInMonth: (subjectId, monthStr) => {
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            const newSchedules = { ...s.schedules };
-            
-            if (newSchedules[monthStr]) {
-              delete newSchedules[monthStr];
-            } else {
-              newSchedules[monthStr] = {
-                monthlyGoal: 0,
-                plannedDays: [],
-                isCompleted: false,
-                notes: ''
-              };
-            }
-            return { ...s, schedules: newSchedules };
-          })
-        }));
-        saveToCloud(get());
-      },
-
-      updateSubjectSchedule: (subjectId, monthStr, updates) => {
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            const currentSchedule = s.schedules?.[monthStr];
-            if (!currentSchedule) return s;
-
-            return {
-              ...s,
-              schedules: {
-                ...s.schedules,
-                [monthStr]: {
-                  ...currentSchedule,
-                  ...updates
-                }
-              }
-            };
-          })
-        }));
-        saveToCloud(get());
-      },
-
-      toggleSubjectPlannedDay: (subjectId, monthStr, dateStr) => {
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            
-            const currentSchedule = s.schedules?.[monthStr];
-            if (!currentSchedule) return s;
-
-            const currentDays = currentSchedule.plannedDays || [];
-            const isPlanned = currentDays.includes(dateStr);
-            
-            return {
-              ...s,
-              schedules: {
-                ...s.schedules,
-                [monthStr]: {
-                  ...currentSchedule,
-                  plannedDays: isPlanned 
-                    ? currentDays.filter(d => d !== dateStr) 
-                    : [...currentDays, dateStr].sort()
-                }
-              }
-            };
-          })
-        }));
-        saveToCloud(get());
-      },
-
       deleteSubject: (id) => {
         set((state) => ({
-          subjects: state.subjects.filter(s => s.id !== id)
-        }));
-        saveToCloud(get());
-      },
-
-      addSubtopic: (subjectId, title) => {
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            return {
-              ...s,
-              subtopics: [...s.subtopics, { id: generateId(), title, isCompleted: false }]
-            };
-          })
+          subjects: state.subjects.filter(s => s.id !== id),
+          sessions: state.sessions.filter(sess => sess.subjectId !== id)
         }));
         saveToCloud(get());
       },
@@ -348,66 +220,65 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      deleteSubtopic: (subjectId, subtopicId) => {
+      toggleSubjectInMonth: (subjectId, monthStr) => {
         set((state) => ({
           subjects: state.subjects.map(s => {
             if (s.id !== subjectId) return s;
+            const newSchedules = { ...s.schedules };
+            if (newSchedules[monthStr]) {
+              delete newSchedules[monthStr];
+            } else {
+              newSchedules[monthStr] = { monthlyGoal: 0, plannedDays: [], notes: '' };
+            }
+            return { ...s, schedules: newSchedules };
+          })
+        }));
+        saveToCloud(get());
+      },
+
+      updateSubjectSchedule: (subjectId, monthStr, updates) => {
+        set((state) => ({
+          subjects: state.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            const currentSchedule = s.schedules?.[monthStr];
+            if (!currentSchedule) return s;
             return {
               ...s,
-              subtopics: s.subtopics.filter(st => st.id !== subtopicId)
+              schedules: { ...s.schedules, [monthStr]: { ...currentSchedule, ...updates } }
             };
           })
         }));
         saveToCloud(get());
       },
 
-      importSubtopics: (subjectId, titles) => {
+      toggleSubjectPlannedDay: (subjectId, monthStr, dateStr) => {
         set((state) => ({
           subjects: state.subjects.map(s => {
             if (s.id !== subjectId) return s;
-            const newSubtopics = titles.map(t => ({ id: generateId(), title: t, isCompleted: false }));
+            const currentSchedule = s.schedules?.[monthStr];
+            if (!currentSchedule) return s;
+            const currentDays = currentSchedule.plannedDays || [];
+            const isPlanned = currentDays.includes(dateStr);
             return {
               ...s,
-              subtopics: [...s.subtopics, ...newSubtopics]
+              schedules: {
+                ...s.schedules,
+                [monthStr]: {
+                  ...currentSchedule,
+                  plannedDays: isPlanned ? currentDays.filter(d => d !== dateStr) : [...currentDays, dateStr].sort()
+                }
+              }
             };
           })
         }));
         saveToCloud(get());
       },
 
-      toggleStudyDay: (subjectId, date) => {
-        set((state) => ({
-          subjects: state.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            const isStudied = s.studiedDates.includes(date);
-            return {
-              ...s,
-              studiedDates: isStudied 
-                ? s.studiedDates.filter(d => d !== date)
-                : [...s.studiedDates, date]
-            };
-          })
-        }));
-        saveToCloud(get());
-      },
-
-      isStudiedToday: (subjectId) => {
-        const today = formatDate(new Date());
-        return get().subjects.find(s => s.id === subjectId)?.studiedDates.includes(today) || false;
-      },
-      
       setActiveSubjectId: (id) => set({ activeSubjectId: id }),
 
       addSession: (sessionData) => {
         set((state) => ({
           sessions: [...state.sessions, { ...sessionData, id: generateId() }]
-        }));
-        saveToCloud(get());
-      },
-
-      updateSessionStatus: (sessionId, status) => {
-        set((state) => ({
-          sessions: state.sessions.map(s => s.id === sessionId ? { ...s, status } : s)
         }));
         saveToCloud(get());
       },
@@ -419,6 +290,15 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
+      updateSessionStatus: (sessionId, status) => {
+        set((state) => ({
+          sessions: state.sessions.map(sess => 
+            sess.id === sessionId ? { ...sess, status } : sess
+          )
+        }));
+        saveToCloud(get());
+      },
+
       updateSettings: (updates) => {
         set((state) => ({
           settings: { ...state.settings, ...updates }
@@ -426,38 +306,16 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      getSubjectsByMonthId: (monthId) => {
-        return get().subjects.filter(s => s.monthId === monthId);
-      },
-
+      getSubjectsByMonthId: (monthId) => get().subjects.filter(s => s.monthId === monthId),
       getSessionsByMonthId: (monthId) => {
         const monthSubjects = get().subjects.filter(s => s.monthId === monthId).map(s => s.id);
         return get().sessions.filter(s => monthSubjects.includes(s.subjectId));
       },
-
-      getTotalTimeByMonthId: (monthId) => {
-        const sessions = get().getSessionsByMonthId(monthId);
-        const completedSessions = sessions.filter(s => s.status === 'completed');
-        return completedSessions.reduce((acc, curr) => acc + curr.duration, 0);
-      },
-
       getTimeBySubject: (subjectId) => {
         const sessions = get().sessions.filter(s => s.subjectId === subjectId && s.status === 'completed');
         return sessions.reduce((acc, curr) => acc + curr.duration, 0);
       },
-
-      getSubjectProgress: (subjectId) => {
-        const subject = get().subjects.find(s => s.id === subjectId);
-        if (!subject || subject.subtopics.length === 0) return 0;
-        
-        const completed = subject.subtopics.filter(s => s.isCompleted).length;
-        return Math.round((completed / subject.subtopics.length) * 100);
-      },
-
-      getStreakStats: () => {
-        const completedSessions = get().sessions.filter(s => s.status === 'completed');
-        return calculateStreaks(completedSessions);
-      }
+      getStreakStats: () => calculateStreaks(get().sessions.filter(s => s.status === 'completed'))
     }),
     {
       name: 'study-store',

@@ -1,4 +1,10 @@
 
+export interface Subtopic {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+}
+
 export type HealthDegree = 
   | 'Pharmacy'
   | 'Medicine'
@@ -17,12 +23,6 @@ export interface User {
   photoURL: string | null;
 }
 
-export interface Subtopic {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-}
-
 export interface Month {
   id: string;
   name: string;
@@ -30,23 +30,21 @@ export interface Month {
 }
 
 export interface SubjectSchedule {
-  monthlyGoal: number; // Goal for this specific month
-  plannedDays: string[]; // Days planned for this specific month
-  isCompleted: boolean; // Completion status for this specific month
-  notes: string; // Notes for this specific month
+  monthlyGoal: number; 
+  plannedDays: string[]; 
+  notes: string; 
+  isCompleted?: boolean;
 }
 
 export interface Subject {
   id: string;
   title: string;
-  monthId: string; // Links to the Exam/Group ID (e.g., "Residency USP")
+  monthId: string; 
   tag?: string;
   color: string;
-  subtopics: Subtopic[];
-  studiedDates: string[]; // ISO date strings (YYYY-MM-DD)
-  
-  // New: Dictionary to hold data for specific schedule months (Key: YYYY-MM)
+  studiedDates: string[]; 
   schedules: Record<string, SubjectSchedule>;
+  subtopics: Subtopic[];
 }
 
 export interface Session {
@@ -66,10 +64,4 @@ export interface Settings {
   userName: string;
   finalGoal: string;
   healthDegree: HealthDegree; 
-}
-
-export interface WeeklyProgress {
-  week: number;
-  total: number;
-  completed: number;
 }

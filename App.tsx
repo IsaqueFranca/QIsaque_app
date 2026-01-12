@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Settings, GraduationCap, Play, BarChart3, Menu, Flame, User, LogOut, UserPlus, 
-  ChevronRight, FolderOpen, CalendarRange, Home
+  Settings, GraduationCap, Play, Menu, Flame, User, LogOut, UserPlus, 
+  ChevronRight, FolderOpen, CalendarRange, Home, Clock
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -12,7 +12,6 @@ import MonthGrid from "./components/study/MonthGrid";
 import SubjectList from "./components/study/SubjectList";
 import SettingsPage from "./components/study/SettingsPage";
 import StartStudyTab from "./components/study/StartStudyTab";
-import StatisticsTab from "./components/study/StatisticsTab";
 import ScheduleTab from "./components/study/ScheduleTab";
 import TodayTab from "./components/study/TodayTab";
 import LoginPage from "./components/auth/LoginPage";
@@ -20,7 +19,7 @@ import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import { User as UserType } from "./types";
 
-type Tab = "today" | "provas" | "planning" | "schedule" | "study" | "statistics" | "settings";
+type Tab = "today" | "provas" | "planning" | "schedule" | "study" | "settings";
 
 interface SidebarProps {
   tab: Tab;
@@ -32,141 +31,45 @@ interface SidebarProps {
   onGuestLogin: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  tab, 
-  setTab, 
-  setIsMobileMenuOpen, 
-  user, 
-  onSettingsClick, 
-  onLogout, 
-  onGuestLogin 
-}) => {
+const Sidebar: React.FC<SidebarProps> = ({ tab, setTab, setIsMobileMenuOpen, user, onSettingsClick, onLogout, onGuestLogin }) => {
   return (
     <div className="flex flex-col h-[100dvh] bg-white border-r border-zinc-100 w-72 safe-area-left">
-      <div className="p-6 pb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg shadow-zinc-900/10">
-             <graduationcap classname="w-4 h-4 text-white" />
+      <div className="p-8 pb-10 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-2xl bg-zinc-900 flex items-center justify-center shadow-2xl shadow-zinc-900/30">
+             <GraduationCap className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="font-bold text-lg text-zinc-900 tracking-tight">
-              QIsaque
-            </h1>
-          </div>
+          <h1 className="font-black text-2xl text-zinc-900 tracking-tighter">QIsaque</h1>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-8">
-        <div className="space-y-1">
-             <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
-             <button
-                onClick={() => { setTab("today"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "today" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <home classname={cn("w-4 h-4", tab === "today" && "text-zinc-900")} />
-                Início
-              </button>
-             <button
-                onClick={() => { setTab("provas"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "provas" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <folderopen classname={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
-                Assuntos
-              </button>
-              <button
-                onClick={() => { setTab("schedule"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "schedule" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <calendarrange classname={cn("w-4 h-4", tab === "schedule" && "text-zinc-900")} />
-                Cronograma
-              </button>
-             <button
-                onClick={() => { setTab("study"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "study" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <play classname={cn("w-4 h-4", tab === "study" && "fill-current")} />
-                Timer
-              </button>
-              <button
-                onClick={() => { setTab("statistics"); setIsMobileMenuOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium",
-                  tab === "statistics" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
-                )}
-              >
-                <barchart3 classname="w-4 h-4" />
-                Análise
-              </button>
-        </div>
-      </div>
-
-      <div className="p-4 mt-auto shrink-0 space-y-2 border-t border-zinc-50 bg-zinc-50/50">
-         <div className="flex items-center gap-3 mb-2 px-2">
-            {user ? (
-                <>
-                    {user.photoURL ? (
-                        <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-zinc-200" />
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-zinc-200">
-                            <user classname="w-4 h-4 text-zinc-500" />
-                        </div>
-                    )}
-                    <div className="flex flex-col overflow-hidden">
-                        <span className="text-xs font-bold text-zinc-900 truncate">{user.displayName || "Usuário"}</span>
-                        <span className="text-[10px] text-zinc-400 truncate">{user.email}</span>
-                    </div>
-                </>
-            ) : (
-                <div className="flex items-center gap-2">
-                   <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center">
-                       <user classname="w-4 h-4 text-zinc-500" />
-                   </div>
-                   <span className="text-xs font-bold text-zinc-500">Modo Local</span>
-                </div>
-            )}
-         </div>
-
-        <button
-          onClick={onSettingsClick}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium",
-            tab === "settings" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
-          )}
-        >
-          <settings classname="w-4 h-4" />
-          Ajustes
+      <div className="flex-1 overflow-y-auto px-6 space-y-1">
+        <button onClick={() => { setTab("today"); setIsMobileMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold", tab === "today" ? "bg-zinc-100 text-zinc-900 shadow-sm" : "text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50")}>
+          <Home className="w-5 h-5" /> Início
         </button>
-        
-        {auth && (
-          user ? (
-              <button
-              onClick={onLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-red-400 hover:text-red-600 hover:bg-red-50"
-              >
-              <logout classname="w-4 h-4" />
-              Sair
-              </button>
-          ) : (
-              <button
-              onClick={onGuestLogin}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-              >
-              <userplus classname="w-4 h-4" />
-              Entrar / Sincronizar
-              </button>
-          )
+        <button onClick={() => { setTab("provas"); setIsMobileMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold", tab === "provas" ? "bg-zinc-100 text-zinc-900 shadow-sm" : "text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50")}>
+          <FolderOpen className="w-5 h-5" /> Assuntos
+        </button>
+        <button onClick={() => { setTab("schedule"); setIsMobileMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold", tab === "schedule" ? "bg-zinc-100 text-zinc-900 shadow-sm" : "text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50")}>
+          <CalendarRange className="w-5 h-5" /> Cronograma
+        </button>
+        <button onClick={() => { setTab("study"); setIsMobileMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold", tab === "study" ? "bg-zinc-100 text-zinc-900 shadow-sm" : "text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50")}>
+          <Clock className="w-5 h-5" /> Timer
+        </button>
+      </div>
+
+      <div className="p-6 mt-auto shrink-0 space-y-2 border-t border-zinc-50 bg-zinc-50/50">
+        <button onClick={onSettingsClick} className={cn("w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold", tab === "settings" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-900")}>
+          <Settings className="w-5 h-5" /> Ajustes
+        </button>
+        {user ? (
+          <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold text-red-400 hover:text-red-600 hover:bg-red-50">
+            <LogOut className="w-5 h-5" /> Sair
+          </button>
+        ) : (
+          <button onClick={onGuestLogin} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all text-sm font-bold text-zinc-900 bg-white border border-zinc-200 shadow-sm">
+            <UserPlus className="w-5 h-5" /> Entrar
+          </button>
         )}
       </div>
     </div>
@@ -180,225 +83,82 @@ const App = () => {
   const [selectedMonthId, setSelectedMonthId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const {
-    months,
-    subjects,
-    settings,
-    getSubjectsByMonthId,
-    updateSettings,
-    getSessionsByMonthId,
-    getStreakStats,
-    user,
-    setUser,
-    loadFromCloud,
-    setActiveSubjectId,
-    // Add guest mode state from store
-    guestMode,
-    setGuestMode
-  } = useStudyStore();
-
-  const streakStats = getStreakStats();
+  const { months, settings, getSubjectsByMonthId, updateSettings, getStreakStats, user, setUser, loadFromCloud, setActiveSubjectId, guestMode, setGuestMode } = useStudyStore();
 
   useEffect(() => {
-    if (!auth) {
-      setIsAuthLoading(false);
-      return;
-    }
+    if (!auth) { setIsAuthLoading(false); return; }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        setUser({
-          uid: currentUser.uid,
-          email: currentUser.email,
-          displayName: currentUser.displayName,
-          photoURL: currentUser.photoURL
-        });
+        setUser({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName, photoURL: currentUser.photoURL });
         loadFromCloud(currentUser.uid);
-        // Reset guest mode if user logs in
         setGuestMode(false);
-      } else {
-        setUser(null);
-      }
+      } else { setUser(null); }
       setIsAuthLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [setUser, loadFromCloud, setGuestMode]);
 
-  const handleSelectExamForPlanning = (monthId: string) => {
-    setSelectedMonthId(monthId);
-    setTab("planning");
-    if (window.innerWidth < 768) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
-  const handleSettingsClick = () => {
-    setTab(tab === "settings" ? "today" : "settings");
-    if (window.innerWidth < 768) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    if (auth && user) {
-      await signOut(auth);
-    }
-    // Also reset guest mode on explicit logout
-    setGuestMode(false);
-    setTab("today");
-  };
-
-  const handleGuestLoginClick = () => {
-      setShowLogin(true);
-  };
-  
-  const handleStartStudy = (subjectId: string) => {
-      setActiveSubjectId(subjectId);
-      setTab("study");
-  };
+  const handleSelectExamForPlanning = (monthId: string) => { setSelectedMonthId(monthId); setTab("planning"); };
+  const handleSettingsClick = () => { setTab("settings"); setIsMobileMenuOpen(false); };
+  const handleLogout = async () => { if (auth && user) { await signOut(auth); } setGuestMode(false); setTab("today"); };
+  const handleGuestLoginClick = () => { setShowLogin(true); };
+  const handleStartStudy = (subjectId: string) => { setActiveSubjectId(subjectId); setTab("study"); };
 
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-zinc-100 border-t-zinc-900 rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  // Updated condition: show login only if explicitly requested AND user is not authenticated AND not in guest mode
-  if (showLogin && !user && !guestMode) {
-      return <LoginPage onLoginSuccess={() => setShowLogin(false)} />;
-  }
+  if (showLogin && !user && !guestMode) { return <LoginPage onLoginSuccess={() => setShowLogin(false)} />; }
 
   return (
     <div className="min-h-screen bg-white font-sans flex overflow-hidden selection:bg-zinc-900 selection:text-white">
-      <div className="hidden md:block h-screen sticky top-0 z-40">
-        <Sidebar 
-          tab={tab}
-          setTab={setTab}
-          setIsMobileMenuOpen={setIsMobileMenuOpen}
-          user={user}
-          onSettingsClick={handleSettingsClick}
-          onLogout={handleLogout}
-          onGuestLogin={handleGuestLoginClick}
-        />
+      <div className="hidden lg:block h-screen sticky top-0 z-40">
+        <Sidebar tab={tab} setTab={setTab} setIsMobileMenuOpen={setIsMobileMenuOpen} user={user} onSettingsClick={handleSettingsClick} onLogout={handleLogout} onGuestLogin={handleGuestLoginClick} />
       </div>
 
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black z-40 md:hidden backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              className="fixed inset-y-0 left-0 z-50 bg-white w-72 md:hidden shadow-2xl safe-area-left h-[100dvh]"
-            >
-              <Sidebar 
-                tab={tab}
-                setTab={setTab}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-                user={user}
-                onSettingsClick={handleSettingsClick}
-                onLogout={handleLogout}
-                onGuestLogin={handleGuestLoginClick}
-              />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black z-40 lg:hidden backdrop-blur-sm" />
+            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} className="fixed inset-y-0 left-0 z-50 bg-white w-72 lg:hidden shadow-2xl safe-area-left h-[100dvh]">
+              <Sidebar tab={tab} setTab={setTab} setIsMobileMenuOpen={setIsMobileMenuOpen} user={user} onSettingsClick={handleSettingsClick} onLogout={handleLogout} onGuestLogin={handleGuestLoginClick} />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-y-auto safe-area-bottom bg-zinc-50/30">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-zinc-50 px-6 py-4 md:px-10 md:py-5 transition-all">
-           <div className="flex items-center justify-between max-w-6xl mx-auto w-full">
-             <div className="md:hidden mr-4">
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-y-auto safe-area-bottom bg-zinc-50/20">
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-6 py-6 lg:px-12 lg:py-8 transition-all">
+           <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
+             <div className="lg:hidden mr-4">
                <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-                 <menu classname="w-6 h-6 text-zinc-700" />
+                 <Menu className="w-7 h-7 text-zinc-900" />
                </Button>
              </div>
-
-             <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 text-zinc-400 text-sm font-medium">
-                  <span>QIsaque</span>
-                  <chevronright classname="w-4 h-4" />
-                  <span className="text-zinc-900 capitalize">
-                      {tab === "today" ? "Visão Geral" : 
-                       tab === "planning" ? "Planejamento" : 
-                       tab === "provas" ? "Meus Assuntos" : 
-                       tab === "schedule" ? "Cronograma" :
-                       tab === "study" ? "Timer" : 
-                       tab === "statistics" ? "Relatórios" : "Ajustes"}
-                  </span>
-                </div>
+             <div className="hidden md:flex items-center gap-3 text-zinc-400 text-sm font-bold uppercase tracking-widest">
+                <span className="text-zinc-900">{tab === "today" ? "Dashboard" : tab === "provas" ? "Assuntos" : tab === "schedule" ? "Cronograma" : tab === "study" ? "Timer" : "Ajustes"}</span>
              </div>
-
-             <div className="flex items-center gap-4">
-                <div className="hidden sm:flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold border border-orange-100">
-                   <flame classname="w-3.5 h-3.5 fill-current" />
-                   {streakStats.currentStreak} dias
-                </div>
-
-                <div className="flex items-center gap-2">
-                   <span className="text-sm font-bold text-zinc-900 hidden sm:block">
-                     {settings.finalGoal || "Defina sua meta"}
-                   </span>
+             <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-full text-xs font-black border border-orange-100 uppercase tracking-tighter">
+                   <Flame className="w-4 h-4 fill-current" /> {getStreakStats().currentStreak} dias de sequência
                 </div>
              </div>
            </div>
         </header>
 
-        <main className="flex-1 px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto w-full">
+        <main className="flex-1 px-6 py-10 lg:px-12 lg:py-12 max-w-7xl mx-auto w-full">
            <AnimatePresence mode="wait">
-             <motion.div
-               key={tab}
-               initial={{ opacity: 0, y: 5 }}
-               animate={{ opacity: 1, y: 0 }}
-               exit={{ opacity: 0, y: -5 }}
-               transition={{ duration: 0.2 }}
-               className="h-full"
-             >
-               {tab === "today" && (
-                 <TodayTab onStartStudy={handleStartStudy} />
-               )}
-
-               {tab === "provas" && (
-                 <MonthGrid 
-                   months={months} 
-                   onSelectMonth={handleSelectExamForPlanning} 
-                 />
-               )}
-               
-               {tab === "planning" && selectedMonthId && (
-                 <SubjectList 
-                   monthId={selectedMonthId} 
-                   subjects={getSubjectsByMonthId(selectedMonthId)}
-                   onBack={() => setTab("provas")}
-                 />
-               )}
-
+             <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+               {tab === "today" && <TodayTab onStartStudy={handleStartStudy} />}
+               {tab === "provas" && <MonthGrid months={months} onSelectMonth={handleSelectExamForPlanning} />}
+               {tab === "planning" && selectedMonthId && <SubjectList monthId={selectedMonthId} subjects={getSubjectsByMonthId(selectedMonthId)} onBack={() => setTab("provas")} />}
                {tab === "schedule" && <ScheduleTab />}
                {tab === "study" && <StartStudyTab />}
-               {tab === "statistics" && (
-                 <StatisticsTab 
-                    months={months}
-                    subjects={subjects}
-                    monthlyGoalHours={settings.monthlyGoalHours}
-                    getSessionsByMonth={getSessionsByMonthId}
-                    getSubjectsByMonthId={getSubjectsByMonthId}
-                 />
-               )}
-               {tab === "settings" && (
-                 <SettingsPage 
-                    settings={settings}
-                    onUpdateSettings={updateSettings}
-                    onBack={() => setTab("today")}
-                 />
-               )}
+               {tab === "settings" && <SettingsPage settings={settings} onUpdateSettings={updateSettings} onBack={() => setTab("today")} />}
              </motion.div>
            </AnimatePresence>
         </main>

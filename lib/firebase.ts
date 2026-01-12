@@ -1,10 +1,7 @@
 
 import { initializeApp } from "firebase/app";
-import type { FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import type { Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import type { Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,14 +14,13 @@ const firebaseConfig = {
 
 const isConfigValid = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined' && firebaseConfig.apiKey !== '""';
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let googleProvider: GoogleAuthProvider | null = null;
+let auth: any = null;
+let db: any = null;
+let googleProvider: any = null;
 
 if (isConfigValid) {
   try {
-    app = initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     googleProvider = new GoogleAuthProvider();
