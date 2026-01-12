@@ -8,6 +8,7 @@ const getAiClient = () => {
     return null;
   }
   // Create a new GoogleGenAI instance right before making an API call to ensure it uses latest key
+  // Correctly initialized with the named parameter apiKey as per guidelines.
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
@@ -45,9 +46,10 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
       },
     });
 
-    if (response.text) {
-        // According to guidelines, for JSON responses we should trim the text and parse it directly
-        const json = JSON.parse(response.text.trim());
+    // Safely extract text using the .text property (not a method) as per guidelines
+    const responseText = response.text;
+    if (responseText) {
+        const json = JSON.parse(responseText.trim());
         return json.subtopics || [];
     }
     return [];
@@ -91,9 +93,9 @@ export const organizeSubjectsFromText = async (text: string): Promise<string[]> 
       },
     });
 
-    if (response.text) {
-      // Direct parsing as responseMimeType is set to application/json
-      const json = JSON.parse(response.text.trim());
+    const responseText = response.text;
+    if (responseText) {
+      const json = JSON.parse(responseText.trim());
       return json.subjects || [];
     }
     return [];

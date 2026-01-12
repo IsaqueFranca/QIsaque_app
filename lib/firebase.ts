@@ -1,7 +1,8 @@
 // Ensure initializeApp is correctly imported from the modular SDK entry point
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// Fix: Ensured the import is standard for Firebase v9+ Modular SDK to resolve "no exported member" error.
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,

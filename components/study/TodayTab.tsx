@@ -1,8 +1,9 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { formatDate } from "../../lib/utils";
-import { Clock, BookOpen, LayoutList, PlayCircle } from "lucide-react";
+import { Clock, BookOpen, LayoutList, PlayCircle, Filter } from "lucide-react";
+import { cn } from "../../lib/utils";
 
 interface TodayTabProps {
   onStartStudy: (subjectId: string) => void;
@@ -10,6 +11,7 @@ interface TodayTabProps {
 
 const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
   const { subjects, sessions, settings, months } = useStudyStore();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const todayStr = formatDate(new Date());
 
   const hoursToday = useMemo(() => {
@@ -27,6 +29,11 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
     const totalSeconds = subjectSessions.reduce((acc, s) => acc + s.duration, 0);
     return (totalSeconds / 3600).toFixed(1);
   };
+
+  const filteredSubjects = useMemo(() => {
+    if (selectedCategoryId === "all") return subjects;
+    return subjects.filter(s => s.monthId === selectedCategoryId);
+  }, [subjects, selectedCategoryId]);
 
   const displayName = settings.userName ? settings.userName.split(' ')[0] : 'Estudante';
 
@@ -53,6 +60,35 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
         </div>
       </div>
 
+      {/* Seletor de Categoria (Filtro) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+         <div className="flex items-center gap-1.5 shrink-0 pr-3 border-r border-zinc-100 mr-1">
+            <Filter className="w-3 h-3 text-zinc-300" />
+            <span className="text-[9px] font-black text-zinc-400 uppercase">Filtrar:</span>
+         </div>
+         <button 
+            onClick={() => setSelectedCategoryId("all")}
+            className={cn(
+               "px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all whitespace-nowrap",
+               selectedCategoryId === "all" ? "bg-zinc-900 text-white shadow-sm" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+            )}
+         >
+            Todas
+         </button>
+         {months.map(month => (
+            <button 
+               key={month.id}
+               onClick={() => setSelectedCategoryId(month.id)}
+               className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all whitespace-nowrap",
+                  selectedCategoryId === month.id ? "bg-zinc-900 text-white shadow-sm" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+               )}
+            >
+               {month.name}
+            </button>
+         ))}
+      </div>
+
       {/* Tabela de Alta Densidade */}
       <section className="space-y-2">
         <div className="flex items-center justify-between px-1">
@@ -60,7 +96,7 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
                 <LayoutList className="w-3 h-3" />
                 Quadro de Horas por Matéria
             </h2>
-            <span className="text-[9px] font-bold text-zinc-300 uppercase">{subjects.length} Ativas</span>
+            <span className="text-[9px] font-bold text-zinc-300 uppercase">{filteredSubjects.length} Mostradas</span>
         </div>
         
         <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
@@ -69,20 +105,20 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
                     <thead>
                         <tr className="bg-zinc-50/50 border-b border-zinc-200">
                             <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Matéria</th>
-                            <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Mês/Grupo</th>
+                            <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Categoria</th>
                             <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter text-right">Acumulado</th>
-                            <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter text-right">Link</th>
+                            <th className="px-3 py-2 text-[9px] font-black text-zinc-400 uppercase tracking-tighter text-right">Ação</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
-                        {subjects.length === 0 ? (
+                        {filteredSubjects.length === 0 ? (
                             <tr>
                                 <td colSpan={4} className="px-3 py-8 text-center text-zinc-400 text-[10px] italic">
-                                    Nenhuma matéria registrada.
+                                    Nenhuma matéria nesta categoria.
                                 </td>
                             </tr>
                         ) : (
-                            subjects.map((subject) => {
+                            filteredSubjects.map((subject) => {
                                 const parentMonth = months.find(m => m.id === subject.monthId);
                                 const totalHours = getSubjectHours(subject.id);
 

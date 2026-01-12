@@ -2,6 +2,7 @@
  * QIsaque Vanilla JS Logic
  * Simulates React State, Zustand Store, and Routing
  */
+import { GoogleGenAI } from "@google/genai";
 
 // --- Utilities ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -500,30 +501,29 @@ const app = {
             userDiv.textContent = text;
             history.appendChild(userDiv);
 
-            // Mock AI Response or Fetch if Key exists
+            // Mock AI Response or Fetch using SDK if Key exists
             let responseText = "Configure sua API Key nas configurações para falar comigo de verdade!";
             
-            const apiKey = process.env.API_KEY;
-            if(apiKey) {
+            if(process.env.API_KEY) {
                 const loadingDiv = document.createElement('div');
                 loadingDiv.className = 'message msg-ai';
                 loadingDiv.textContent = '...';
                 history.appendChild(loadingDiv);
                 
                 try {
-                    // Simple fetch to Gemini API REST endpoint
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: `You are a study tutor for ${store.state.settings.healthDegree}. User says: ${text}` }] }]
-                        })
+                    // Fix: Use the official Gemini SDK instead of direct fetch as per guidelines.
+                    // Correct initialization and model selection (gemini-3-flash-preview for general QA).
+                    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents: `You are a study tutor for ${store.state.settings.healthDegree}. User says: ${text}`,
                     });
-                    const data = await res.json();
-                    responseText = data.candidates[0].content.parts[0].text;
+                    
+                    responseText = response.text || "Erro ao processar resposta.";
                     loadingDiv.remove();
                 } catch(e) {
-                    responseText = "Erro ao conectar com a IA.";
+                    console.error("SDK Chat Error:", e);
+                    responseText = "Erro ao conectar com a IA através do SDK.";
                     if(loadingDiv) loadingDiv.remove();
                 }
             }
