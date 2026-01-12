@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 // A chave será obtida via process.env.API_KEY, que é injetada pelo vite.config.ts durante o build
@@ -7,7 +8,8 @@ const getAiClient = () => {
     console.error("Gemini API Key is missing. Verifique se a Secret 'API_KEY' ou 'VITE_API_KEY' foi configurada no .env ou nas variáveis de ambiente.");
     return null;
   }
-  return new GoogleGenAI({ apiKey });
+  // Create a new GoogleGenAI instance right before making an API call to ensure it uses latest key
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // Helper to clean Markdown code blocks from JSON response
@@ -21,8 +23,9 @@ export const generateSubtopicsForSubject = async (subjectTitle: string, healthDe
   if (!ai) return ["Erro: Chave API ausente."];
 
   try {
+    // Use gemini-3-flash-preview for basic text tasks like generating subtopics
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Atue como um tutor especialista em concursos e residências da área da saúde no Brasil.
       
       Tarefa: Gere uma lista abrangente de 5 a 10 subtópicos de estudo essenciais para a matéria: "${subjectTitle}".
@@ -65,8 +68,9 @@ export const organizeSubjectsFromText = async (text: string): Promise<string[]> 
   if (!ai) return [];
 
   try {
+    // Use gemini-3-flash-preview for text extraction and organization
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Você é um assistente organizacional especializado em editais de concursos e residências médicas no Brasil.
       
       Sua tarefa: Analisar o texto fornecido (que pode ser um edital copiado, um sumário ou anotações) e extrair uma lista limpa de matérias/disciplinas.
@@ -114,8 +118,9 @@ export const getStudyChatResponse = async (
   if (!ai) return "Não foi possível conectar com a IA. Verifique sua chave API.";
 
   try {
+    // Use gemini-3-pro-preview for complex reasoning tasks like a study tutor
     const chat = ai.chats.create({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       config: {
         systemInstruction: `Você é um tutor de estudos especializado para um estudante de ${degree} no Brasil. 
         O estudante está estudando a matéria: "${subject}". 
@@ -132,6 +137,7 @@ export const getStudyChatResponse = async (
     });
 
     const response = await chat.sendMessage({ message });
+    // Use .text property directly as per guidelines
     return response.text || "Sem resposta.";
   } catch (error) {
     console.error("Chat error", error);
@@ -154,8 +160,9 @@ export const generateBehavioralInsights = async (
       hour: new Date(s.startTime).getHours()
     }));
 
+    // Use gemini-3-flash-preview for general insights
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Analise estes dados de estudo de um estudante de ${degree} e forneça 3 insights comportamentais curtos (1 frase cada) em Português do Brasil.
       
       Estatísticas:

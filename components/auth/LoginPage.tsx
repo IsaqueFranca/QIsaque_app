@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -19,6 +20,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
 
   const loadFromCloud = useStudyStore(state => state.loadFromCloud);
+  // Fix: retrieve setGuestMode from study store
   const setGuestMode = useStudyStore(state => state.setGuestMode);
 
   const handleAuthSuccess = async (user: any) => {
@@ -34,8 +36,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  // Fix: setGuestMode and notify caller of success
   const handleGuestLogin = () => {
     setGuestMode(true);
+    onLoginSuccess();
   };
 
   const handleAuthError = (err: any) => {

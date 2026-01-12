@@ -3,7 +3,7 @@ import React, { useMemo } from "react";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { formatDate } from "../../lib/utils";
 import { motion } from "framer-motion";
-import { Calendar, CheckCircle2, Play, Coffee, ArrowRight, Sun, Moon, Sunrise, BookOpen } from "lucide-react";
+import { Calendar, CheckCircle2, Play, Coffee, ArrowRight, Sun, Moon, Sunrise, BookOpen, Clock, LayoutList, TrendingUp } from "lucide-react";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { cn } from "../../lib/utils";
@@ -13,7 +13,7 @@ interface TodayTabProps {
 }
 
 const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
-  const { subjects, sessions, settings } = useStudyStore();
+  const { subjects, sessions, settings, months } = useStudyStore();
   const today = new Date();
   const todayStr = formatDate(today);
   const monthId = todayStr.slice(0, 7);
@@ -35,21 +35,24 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
   };
   const greeting = getGreeting();
 
-  const getSubjectTodayStats = (subjectId: string) => {
-    const todaysSessions = sessions.filter(
-      s => s.subjectId === subjectId && s.date === todayStr && s.status === 'completed'
+  const getSubjectTotalHours = (subjectId: string) => {
+    const subjectSessions = sessions.filter(
+      s => s.subjectId === subjectId && s.status === 'completed'
     );
-    const totalDuration = todaysSessions.reduce((acc, s) => acc + s.duration, 0);
-    return {
-      count: todaysSessions.length,
-      minutes: Math.round(totalDuration / 60)
-    };
+    const totalDuration = subjectSessions.reduce((acc, s) => acc + s.duration, 0);
+    return (totalDuration / 3600).toFixed(1);
+  };
+
+  const getSubjectCompletion = (subject: any) => {
+    if (!subject.subtopics || subject.subtopics.length === 0) return 0;
+    const completed = subject.subtopics.filter((st: any) => st.isCompleted).length;
+    return Math.round((completed / subject.subtopics.length) * 100);
   };
 
   const displayName = settings.userName ? settings.userName.split(' ')[0] : 'Estudante';
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-12 max-w-6xl mx-auto">
       {/* Hero Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
         <div>
@@ -62,21 +65,100 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
           </p>
         </div>
         
-        {todaysSubjects.length > 0 && (
-          <div className="bg-white px-5 py-3 rounded-2xl border border-zinc-100 shadow-sm flex items-center gap-4">
-            <div className="text-right">
-              <span className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Metas de Hoje</span>
-              <span className="text-xl font-bold text-indigo-600">{todaysSubjects.length} matérias</span>
+        <div className="flex gap-4">
+           {todaysSubjects.length > 0 && (
+            <div className="bg-white px-5 py-3 rounded-2xl border border-zinc-100 shadow-sm flex items-center gap-4">
+                <div className="text-right">
+                <span className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">Metas de Hoje</span>
+                <span className="text-xl font-bold text-indigo-600">{todaysSubjects.length} matérias</span>
+                </div>
+                <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-indigo-600" />
+                </div>
             </div>
-            <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-indigo-600" />
-            </div>
-          </div>
-        )}
+            )}
+        </div>
       </div>
 
-      {/* Content Grid */}
-      <div className="space-y-6">
+      {/* NEW: Overall Subject Performance Table */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+            <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                <LayoutList className="w-5 h-5 text-indigo-500" />
+                Resumo Geral de Estudos
+            </h2>
+            <span className="text-xs text-zinc-500 font-medium">Visualização total de desempenho</span>
+        </div>
+        
+        <div className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                            <th className="px-6 py-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Matéria</th>
+                            <th className="px-6 py-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Assunto Principal</th>
+                            <th className="px-6 py-4 text-xs font-bold text-zinc-400 uppercase tracking-widest text-center">Progresso</th>
+                            <th className="px-6 py-4 text-xs font-bold text-zinc-400 uppercase tracking-widest text-right">Tempo Total</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50">
+                        {subjects.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 italic">
+                                    Nenhuma matéria cadastrada ainda.
+                                </td>
+                            </tr>
+                        ) : (
+                            subjects.map((subject) => {
+                                const parentMonth = months.find(m => m.id === subject.monthId);
+                                const progress = getSubjectCompletion(subject);
+                                const totalHours = getSubjectTotalHours(subject.id);
+
+                                return (
+                                    <tr key={subject.id} className="hover:bg-zinc-50/30 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                                    <BookOpen className="w-4 h-4 text-indigo-500" />
+                                                </div>
+                                                <span className="font-bold text-zinc-800 text-sm">{subject.title}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-zinc-500 font-medium">
+                                            {parentMonth?.name || "Geral"}
+                                        </td>
+                                        <td className="px-6 py-4 min-w-[140px]">
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex justify-between text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                                                    <span>Conclusão</span>
+                                                    <span>{progress}%</span>
+                                                </div>
+                                                <Progress value={progress} className="h-1.5" />
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                                                <span className="font-mono font-bold text-zinc-900 text-base">{totalHours}h</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+      </section>
+
+      {/* Today's Planning Section */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-2 px-2">
+            <TrendingUp className="w-5 h-5 text-orange-500" />
+            <h2 className="text-xl font-bold text-zinc-900">Planejamento para Hoje</h2>
+        </div>
+
         {todaysSubjects.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -90,17 +172,15 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
             <p className="text-zinc-500 max-w-md mx-auto leading-relaxed">
               Nenhuma matéria foi agendada para hoje no seu cronograma. Aproveite para descansar ou adiantar o conteúdo de amanhã.
             </p>
-            <div className="mt-8 flex gap-4">
-              <Button variant="outline" className="rounded-xl h-12 px-6" onClick={() => {}}>
-                Ver Cronograma Completo
-              </Button>
-            </div>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {todaysSubjects.map((subject, index) => {
-                const stats = getSubjectTodayStats(subject.id);
-                const isStarted = stats.count > 0;
+                const subjectSessions = sessions.filter(
+                    s => s.subjectId === subject.id && s.date === todayStr && s.status === 'completed'
+                );
+                const todaysMinutes = Math.round(subjectSessions.reduce((acc, s) => acc + s.duration, 0) / 60);
+                const isStarted = todaysMinutes > 0;
                 
                 return (
                   <motion.div
@@ -142,7 +222,7 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
                              isStarted ? "bg-green-50 border-green-100 text-green-700" : "bg-zinc-50 border-zinc-100 text-zinc-500"
                           )}>
                              <CheckCircle2 className="w-4 h-4" />
-                             <span className="font-medium">{stats.count > 0 ? `${stats.minutes} min estudados` : "Não iniciado"}</span>
+                             <span className="font-medium">{todaysMinutes > 0 ? `${todaysMinutes} min estudados` : "Não iniciado"}</span>
                           </div>
                        </div>
 
@@ -160,7 +240,7 @@ const TodayTab: React.FC<TodayTabProps> = ({ onStartStudy }) => {
              })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 };

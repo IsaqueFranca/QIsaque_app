@@ -8,7 +8,6 @@ import { db } from '../lib/firebase';
 
 interface StudyState {
   user: User | null;
-  isGuest: boolean;
   months: Month[];
   subjects: Subject[];
   sessions: Session[];
@@ -16,9 +15,12 @@ interface StudyState {
   activeScheduleMonths: string[]; // YYYY-MM
   activeSubjectId: string | null; // For cross-tab navigation
   
+  // New: Guest mode state
+  guestMode: boolean;
+  setGuestMode: (mode: boolean) => void;
+
   // User Actions
   setUser: (user: User | null) => void;
-  setGuestMode: (isGuest: boolean) => void;
   loadFromCloud: (uid: string) => Promise<void>;
   
   // Month Actions
@@ -72,7 +74,7 @@ interface StudyState {
 // Helper to debounce cloud saves
 let saveTimeout: ReturnType<typeof setTimeout>;
 const saveToCloud = (state: StudyState) => {
-  if (!state.user?.uid) return;
+  if (!db || !state.user?.uid) return;
   
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
@@ -97,7 +99,6 @@ export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
       user: null,
-      isGuest: false,
       months: [
         { id: 'default-1', name: 'Residência USP', year: new Date().getFullYear() },
       ],
@@ -112,14 +113,17 @@ export const useStudyStore = create<StudyState>()(
         finalGoal: 'Aprovação na Residência',
         healthDegree: 'Medicine',
       },
-      activeScheduleMonths: [formatDate(new Date()).slice(0, 7)], // Initialize with current month YYYY-MM
+      activeScheduleMonths: [formatDate(new Date()).slice(0, 7)],
       activeSubjectId: null,
 
-      setUser: (user) => set({ user, isGuest: false }),
-      
-      setGuestMode: (isGuest) => set({ isGuest }),
+      // Initialize guestMode
+      guestMode: false,
+      setGuestMode: (mode) => set({ guestMode: mode }),
 
+      setUser: (user) => set({ user }),
+      
       loadFromCloud: async (uid) => {
+        if (!db) return;
         try {
           const docRef = doc(db, "users", uid);
           const docSnap = await getDoc(docRef);
@@ -140,7 +144,6 @@ export const useStudyStore = create<StudyState>()(
         }
       },
 
-      // Month Actions
       addMonth: (name, year) => {
         set((state) => ({
           months: [...state.months, { 
@@ -185,9 +188,9 @@ export const useStudyStore = create<StudyState>()(
           ...sub,
           id: generateId(),
           monthId: newMonthId,
-          studiedDates: [], // Reset execution data
-          schedules: {}, // Reset planning data
-          subtopics: sub.subtopics.map(st => ({ ...st, id: generateId(), isCompleted: false })) // Reset subtopic completion
+          studiedDates: [],
+          schedules: {},
+          subtopics: sub.subtopics.map(st => ({ ...st, id: generateId(), isCompleted: false }))
         }));
 
         set({
@@ -197,7 +200,6 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      // Schedule Actions
       addActiveScheduleMonth: (monthStr) => {
         set((state) => {
            if (state.activeScheduleMonths.includes(monthStr)) return state;
@@ -214,7 +216,6 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      // Subject Actions
       addSubject: (title, monthId, tag) => {
         const newId = generateId();
         set((state) => ({
@@ -226,7 +227,7 @@ export const useStudyStore = create<StudyState>()(
             color: 'bg-blue-500',
             subtopics: [],
             studiedDates: [],
-            schedules: {} // Initialize empty schedule map
+            schedules: {}
           }]
         }));
         saveToCloud(get());
@@ -247,10 +248,8 @@ export const useStudyStore = create<StudyState>()(
             const newSchedules = { ...s.schedules };
             
             if (newSchedules[monthStr]) {
-              // If exists, remove it (toggle off)
               delete newSchedules[monthStr];
             } else {
-              // If not exists, add it (toggle on)
               newSchedules[monthStr] = {
                 monthlyGoal: 0,
                 plannedDays: [],
@@ -291,7 +290,6 @@ export const useStudyStore = create<StudyState>()(
           subjects: state.subjects.map(s => {
             if (s.id !== subjectId) return s;
             
-            // Ensure schedule exists
             const currentSchedule = s.schedules?.[monthStr];
             if (!currentSchedule) return s;
 
@@ -322,7 +320,6 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      // Subtopic Actions
       addSubtopic: (subjectId, title) => {
         set((state) => ({
           subjects: state.subjects.map(s => {
@@ -401,7 +398,6 @@ export const useStudyStore = create<StudyState>()(
       
       setActiveSubjectId: (id) => set({ activeSubjectId: id }),
 
-      // Session Actions
       addSession: (sessionData) => {
         set((state) => ({
           sessions: [...state.sessions, { ...sessionData, id: generateId() }]
@@ -430,7 +426,6 @@ export const useStudyStore = create<StudyState>()(
         saveToCloud(get());
       },
 
-      // Selectors
       getSubjectsByMonthId: (monthId) => {
         return get().subjects.filter(s => s.monthId === monthId);
       },
@@ -472,8 +467,8 @@ export const useStudyStore = create<StudyState>()(
         sessions: state.sessions,
         settings: state.settings,
         user: state.user,
-        isGuest: state.isGuest,
-        activeScheduleMonths: state.activeScheduleMonths
+        activeScheduleMonths: state.activeScheduleMonths,
+        guestMode: state.guestMode
       })
     }
   )

@@ -32,7 +32,6 @@ interface SidebarProps {
   onGuestLogin: () => void;
 }
 
-// Extracted Sidebar component to prevent re-creation on every render
 const Sidebar: React.FC<SidebarProps> = ({ 
   tab, 
   setTab, 
@@ -44,11 +43,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <div className="flex flex-col h-[100dvh] bg-white border-r border-zinc-100 w-72 safe-area-left">
-      {/* Header - Fixed Height */}
       <div className="p-6 pb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shadow-lg shadow-zinc-900/10">
-             <GraduationCap className="w-4 h-4 text-white" />
+             <graduationcap classname="w-4 h-4 text-white" />
           </div>
           <div>
             <h1 className="font-bold text-lg text-zinc-900 tracking-tight">
@@ -58,7 +56,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Navigation - Scrollable Area */}
       <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-8">
         <div className="space-y-1">
              <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Navegação</p>
@@ -69,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   tab === "today" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
-                <Home className={cn("w-4 h-4", tab === "today" && "text-zinc-900")} />
+                <home classname={cn("w-4 h-4", tab === "today" && "text-zinc-900")} />
                 Início
               </button>
              <button
@@ -79,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   tab === "provas" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
-                <FolderOpen className={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
+                <folderopen classname={cn("w-4 h-4", tab === "provas" && "text-zinc-900")} />
                 Assuntos
               </button>
               <button
@@ -89,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   tab === "schedule" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
-                <CalendarRange className={cn("w-4 h-4", tab === "schedule" && "text-zinc-900")} />
+                <calendarrange classname={cn("w-4 h-4", tab === "schedule" && "text-zinc-900")} />
                 Cronograma
               </button>
              <button
@@ -99,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   tab === "study" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
-                <Play className={cn("w-4 h-4", tab === "study" && "fill-current")} />
+                <play classname={cn("w-4 h-4", tab === "study" && "fill-current")} />
                 Timer
               </button>
               <button
@@ -109,13 +106,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   tab === "statistics" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
                 )}
               >
-                <BarChart3 className="w-4 h-4" />
+                <barchart3 classname="w-4 h-4" />
                 Análise
               </button>
         </div>
       </div>
 
-      {/* User Footer - Fixed at Bottom */}
       <div className="p-4 mt-auto shrink-0 space-y-2 border-t border-zinc-50 bg-zinc-50/50">
          <div className="flex items-center gap-3 mb-2 px-2">
             {user ? (
@@ -124,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-zinc-200" />
                     ) : (
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-zinc-200">
-                            <User className="w-4 h-4 text-zinc-500" />
+                            <user classname="w-4 h-4 text-zinc-500" />
                         </div>
                     )}
                     <div className="flex flex-col overflow-hidden">
@@ -133,7 +129,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </>
             ) : (
-                <span className="text-xs font-bold text-zinc-500">Modo Visitante</span>
+                <div className="flex items-center gap-2">
+                   <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center">
+                       <user classname="w-4 h-4 text-zinc-500" />
+                   </div>
+                   <span className="text-xs font-bold text-zinc-500">Modo Local</span>
+                </div>
             )}
          </div>
 
@@ -144,26 +145,28 @@ const Sidebar: React.FC<SidebarProps> = ({
             tab === "settings" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
           )}
         >
-          <Settings className="w-4 h-4" />
+          <settings classname="w-4 h-4" />
           Ajustes
         </button>
         
-        {user ? (
-            <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-red-400 hover:text-red-600 hover:bg-red-50"
-            >
-            <LogOut className="w-4 h-4" />
-            Sair
-            </button>
-        ) : (
-             <button
-            onClick={onGuestLogin}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            >
-            <UserPlus className="w-4 h-4" />
-            Entrar
-            </button>
+        {auth && (
+          user ? (
+              <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-red-400 hover:text-red-600 hover:bg-red-50"
+              >
+              <logout classname="w-4 h-4" />
+              Sair
+              </button>
+          ) : (
+              <button
+              onClick={onGuestLogin}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+              <userplus classname="w-4 h-4" />
+              Entrar / Sincronizar
+              </button>
+          )
         )}
       </div>
     </div>
@@ -172,6 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 const App = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
   const [tab, setTab] = useState<Tab>("today");
   const [selectedMonthId, setSelectedMonthId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -186,16 +190,20 @@ const App = () => {
     getStreakStats,
     user,
     setUser,
-    isGuest,
-    setGuestMode,
     loadFromCloud,
-    setActiveSubjectId
+    setActiveSubjectId,
+    // Add guest mode state from store
+    guestMode,
+    setGuestMode
   } = useStudyStore();
 
   const streakStats = getStreakStats();
 
-  // Authentication & Sync Logic
   useEffect(() => {
+    if (!auth) {
+      setIsAuthLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser({
@@ -204,8 +212,9 @@ const App = () => {
           displayName: currentUser.displayName,
           photoURL: currentUser.photoURL
         });
-        // Load data in background without blocking UI
         loadFromCloud(currentUser.uid);
+        // Reset guest mode if user logs in
+        setGuestMode(false);
       } else {
         setUser(null);
       }
@@ -230,16 +239,16 @@ const App = () => {
   };
 
   const handleLogout = async () => {
-    if (user) {
+    if (auth && user) {
       await signOut(auth);
-    } else {
-      setGuestMode(false);
     }
-    setTab("today"); // Reset tab on logout
+    // Also reset guest mode on explicit logout
+    setGuestMode(false);
+    setTab("today");
   };
 
   const handleGuestLoginClick = () => {
-      setGuestMode(false); 
+      setShowLogin(true);
   };
   
   const handleStartStudy = (subjectId: string) => {
@@ -247,7 +256,6 @@ const App = () => {
       setTab("study");
   };
 
-  // 1. Loading Screen (Minimal / Instant)
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -256,15 +264,13 @@ const App = () => {
     );
   }
 
-  // 2. Mandatory Login Screen (Unless Guest)
-  if (!user && !isGuest) {
-    return <LoginPage onLoginSuccess={() => {}} />;
+  // Updated condition: show login only if explicitly requested AND user is not authenticated AND not in guest mode
+  if (showLogin && !user && !guestMode) {
+      return <LoginPage onLoginSuccess={() => setShowLogin(false)} />;
   }
 
   return (
     <div className="min-h-screen bg-white font-sans flex overflow-hidden selection:bg-zinc-900 selection:text-white">
-      
-      {/* Desktop Sidebar */}
       <div className="hidden md:block h-screen sticky top-0 z-40">
         <Sidebar 
           tab={tab}
@@ -277,7 +283,6 @@ const App = () => {
         />
       </div>
 
-      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -308,24 +313,19 @@ const App = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-y-auto safe-area-bottom bg-zinc-50/30">
-        
-        {/* Header */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-zinc-50 px-6 py-4 md:px-10 md:py-5 transition-all">
            <div className="flex items-center justify-between max-w-6xl mx-auto w-full">
-             
-             {/* Mobile Hamburger */}
              <div className="md:hidden mr-4">
                <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-                 <Menu className="w-6 h-6 text-zinc-700" />
+                 <menu classname="w-6 h-6 text-zinc-700" />
                </Button>
              </div>
 
              <div className="flex items-center gap-4">
                 <div className="hidden md:flex items-center gap-2 text-zinc-400 text-sm font-medium">
                   <span>QIsaque</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <chevronright classname="w-4 h-4" />
                   <span className="text-zinc-900 capitalize">
                       {tab === "today" ? "Visão Geral" : 
                        tab === "planning" ? "Planejamento" : 
@@ -338,9 +338,8 @@ const App = () => {
              </div>
 
              <div className="flex items-center gap-4">
-                {/* Streak Badge */}
                 <div className="hidden sm:flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold border border-orange-100">
-                   <Flame className="w-3.5 h-3.5 fill-current" />
+                   <flame classname="w-3.5 h-3.5 fill-current" />
                    {streakStats.currentStreak} dias
                 </div>
 
@@ -353,7 +352,6 @@ const App = () => {
            </div>
         </header>
 
-        {/* Dynamic Content */}
         <main className="flex-1 px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto w-full">
            <AnimatePresence mode="wait">
              <motion.div
@@ -384,9 +382,7 @@ const App = () => {
                )}
 
                {tab === "schedule" && <ScheduleTab />}
-
                {tab === "study" && <StartStudyTab />}
-
                {tab === "statistics" && (
                  <StatisticsTab 
                     months={months}
@@ -396,7 +392,6 @@ const App = () => {
                     getSubjectsByMonthId={getSubjectsByMonthId}
                  />
                )}
-
                {tab === "settings" && (
                  <SettingsPage 
                     settings={settings}
