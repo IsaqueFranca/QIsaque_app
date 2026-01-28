@@ -54,6 +54,7 @@ export interface Session {
   duration: number; // Seconds
   date: string; // ISO Date YYYY-MM-DD
   status: 'completed' | 'incomplete';
+  questionsSolved?: number; // New field for exercise count
 }
 
 export interface Settings {

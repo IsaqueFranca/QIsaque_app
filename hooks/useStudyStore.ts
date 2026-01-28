@@ -46,6 +46,8 @@ interface StudyState {
   getSubjectsByMonthId: (monthId: string) => Subject[];
   getSessionsByMonthId: (monthId: string) => Session[];
   getTimeBySubject: (subjectId: string) => number;
+  getQuestionsBySubject: (subjectId: string) => number;
+  getTotalQuestions: () => number;
   getStreakStats: () => { currentStreak: number; longestStreak: number; totalActiveDays: number; dayMap: Map<string, number> };
 }
 
@@ -314,6 +316,15 @@ export const useStudyStore = create<StudyState>()(
       getTimeBySubject: (subjectId) => {
         const sessions = get().sessions.filter(s => s.subjectId === subjectId && s.status === 'completed');
         return sessions.reduce((acc, curr) => acc + curr.duration, 0);
+      },
+      getQuestionsBySubject: (subjectId) => {
+        const sessions = get().sessions.filter(s => s.subjectId === subjectId && s.status === 'completed');
+        return sessions.reduce((acc, curr) => acc + (curr.questionsSolved || 0), 0);
+      },
+      getTotalQuestions: () => {
+        return get().sessions
+          .filter(s => s.status === 'completed')
+          .reduce((acc, curr) => acc + (curr.questionsSolved || 0), 0);
       },
       getStreakStats: () => calculateStreaks(get().sessions.filter(s => s.status === 'completed'))
     }),

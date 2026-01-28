@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
-import { Play, Pause, CheckCircle2, Clock, Trash2, Plus, Calendar } from "lucide-react";
+import { Play, Pause, CheckCircle2, Clock, Trash2, Plus, Calendar, Edit3 } from "lucide-react";
 import { formatDate, cn } from "../../lib/utils";
 import { useStudyStore } from "../../hooks/useStudyStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,10 @@ const StartStudyTab = () => {
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [manualHours, setManualHours] = useState("");
   const [manualMinutes, setManualMinutes] = useState("");
+  const [manualQuestions, setManualQuestions] = useState("");
+
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [timerQuestions, setTimerQuestions] = useState("");
 
   useEffect(() => {
     if (activeSubjectId) {
@@ -41,19 +45,47 @@ const StartStudyTab = () => {
   }, [isRunning]);
 
   const handleStartTimer = () => { if (!selectedSubjectId) return; setIsTimerOpen(true); setSeconds(settings.pomodoroDuration * 60); setIsRunning(true); };
-  const handleFinishSession = (status: 'completed' | 'incomplete') => {
+  
+  const openFinishModal = () => {
+      setIsRunning(false);
+      setIsFinishModalOpen(true);
+  };
+
+  const handleFinishTimerSession = (status: 'completed' | 'incomplete') => {
     if (!selectedSubjectId) return;
     const duration = (settings.pomodoroDuration * 60) - seconds;
-    if (duration > 10) { addSession({ subjectId: selectedSubjectId, startTime: Date.now(), duration, date: formatDate(new Date()), status }); }
-    setIsRunning(false); setIsTimerOpen(false);
+    const questions = parseInt(timerQuestions) || 0;
+
+    if (duration > 10 && status === 'completed') { 
+        addSession({ 
+            subjectId: selectedSubjectId, 
+            startTime: Date.now(), 
+            duration, 
+            date: formatDate(new Date()), 
+            status,
+            questionsSolved: questions
+        }); 
+    }
+    
+    setTimerQuestions("");
+    setIsFinishModalOpen(false);
+    setIsTimerOpen(false);
   };
 
   const handleSaveManualSession = (e: React.FormEvent) => {
     e.preventDefault(); if (!selectedSubjectId) return;
     const h = parseInt(manualHours) || 0; const m = parseInt(manualMinutes) || 0;
+    const q = parseInt(manualQuestions) || 0;
     if (h === 0 && m === 0) return;
-    addSession({ subjectId: selectedSubjectId, startTime: Date.now(), duration: (h * 3600) + (m * 60), date: studyDate, status: 'completed' });
-    setIsManualOpen(false); setManualHours(""); setManualMinutes("");
+    addSession({ 
+        subjectId: selectedSubjectId, 
+        startTime: Date.now(), 
+        duration: (h * 3600) + (m * 60), 
+        date: studyDate, 
+        status: 'completed',
+        questionsSolved: q
+    });
+    setIsManualOpen(false); setManualHours(""); setManualMinutes(""); setManualQuestions("");
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -115,6 +147,9 @@ const StartStudyTab = () => {
                     <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400 uppercase mt-1">
                       <span className="flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> {session.date.split('-').reverse().join('/')}</span>
                       <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {Math.floor(session.duration / 60)} min</span>
+                      {session.questionsSolved && (
+                        <span className="flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> {session.questionsSolved} Q</span>
+                      )}
                     </div>
                   </div>
                   <button onClick={() => deleteSession(session.id)} className="h-7 w-7 rounded-lg text-zinc-200 hover:text-red-500 transition-colors">
@@ -139,12 +174,37 @@ const StartStudyTab = () => {
               <button onClick={() => setIsRunning(!isRunning)} className="w-16 h-16 rounded-full bg-white text-zinc-900 flex items-center justify-center">
                 {isRunning ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
               </button>
-              <button onClick={() => handleFinishSession('completed')} className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+              <button onClick={openFinishModal} className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </button>
             </div>
-            <button onClick={() => handleFinishSession('incomplete')} className="mt-20 text-zinc-600 text-[10px] font-black uppercase tracking-widest">Descartar Sessão</button>
+            <button onClick={() => handleFinishTimerSession('incomplete')} className="mt-20 text-zinc-600 text-[10px] font-black uppercase tracking-widest">Descartar Sessão</button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isFinishModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl">
+                    <h3 className="font-bold text-sm text-zinc-900 mb-2">Finalizar Sessão</h3>
+                    <p className="text-[10px] text-zinc-500 mb-4 uppercase font-bold">Quantas questões você resolveu?</p>
+                    <div className="space-y-4">
+                        <Input 
+                            type="number" 
+                            placeholder="0 questões" 
+                            value={timerQuestions} 
+                            onChange={(e) => setTimerQuestions(e.target.value)}
+                            className="h-12 text-center text-lg font-bold"
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1 text-[10px]" onClick={() => setIsFinishModalOpen(false)}>Voltar</Button>
+                            <Button size="sm" className="flex-1 text-[10px]" onClick={() => handleFinishTimerSession('completed')}>Finalizar</Button>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
         )}
       </AnimatePresence>
 
@@ -152,7 +212,7 @@ const StartStudyTab = () => {
         {isManualOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/20 backdrop-blur-sm p-4" onClick={() => setIsManualOpen(false)}>
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-xl p-6 max-w-xs w-full shadow-2xl border border-zinc-100" onClick={(e) => e.stopPropagation()}>
-              <h3 className="font-bold text-sm text-zinc-900 mb-4">Adicionar Horas</h3>
+              <h3 className="font-bold text-sm text-zinc-900 mb-4">Adicionar Sessão</h3>
               <form onSubmit={handleSaveManualSession} className="space-y-3">
                  <div className="space-y-1">
                     <label className="text-[9px] font-bold text-zinc-400 uppercase">Data</label>
@@ -167,6 +227,10 @@ const StartStudyTab = () => {
                         <label className="text-[9px] font-bold text-zinc-400 uppercase">M</label>
                         <Input type="number" placeholder="0" value={manualMinutes} onChange={(e) => setManualMinutes(e.target.value)} className="h-8 text-xs" />
                     </div>
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-zinc-400 uppercase">Questões Resolvidas</label>
+                    <Input type="number" placeholder="Ex: 10" value={manualQuestions} onChange={(e) => setManualQuestions(e.target.value)} className="h-8 text-xs" />
                  </div>
                  <div className="pt-2 flex gap-2">
                     <Button variant="ghost" size="sm" className="flex-1 text-[10px]" onClick={() => setIsManualOpen(false)}>Voltar</Button>
